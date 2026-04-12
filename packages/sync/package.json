@@ -1,0 +1,10 @@
+{
+  "name": "@social-llm-wiki/sync",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.js",
+  "description": "Yjs CRDT Sync-Layer über libp2p GossipSub",
+  "dependencies": {
+    "yjs": "^13.6.27"
+  }
+}

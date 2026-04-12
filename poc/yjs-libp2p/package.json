@@ -1,0 +1,21 @@
+{
+  "name": "@social-llm-wiki/poc-yjs-libp2p",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "PoC: Yjs CRDT-Sync über libp2p GossipSub",
+  "scripts": {
+    "node-a": "node src/node-a.js",
+    "node-b": "node src/node-b.js"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-gossipsub": "^14.1.1",
+    "@multiformats/multiaddr": "^12.3.3",
+    "@chainsafe/libp2p-noise": "^16.0.0",
+    "@libp2p/identify": "^3.0.0",
+    "@libp2p/tcp": "^10.0.0",
+    "@chainsafe/libp2p-yamux": "^7.0.0",
+    "libp2p": "^2.8.0",
+    "uint8arrays": "^5.1.0",
+    "yjs": "^13.6.27"
+  }
+}

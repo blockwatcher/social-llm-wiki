@@ -1,0 +1,8 @@
+{
+  "name": "@social-llm-wiki/bot",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.js",
+  "description": "A2A Bot-Koordination (Kai, Horst Duda)",
+  "dependencies": {}
+}

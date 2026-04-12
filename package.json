@@ -1,0 +1,16 @@
+{
+  "name": "social-llm-wiki",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "poc/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "poc:sync": "node poc/yjs-libp2p/src/node-a.js"
+  }
+}
