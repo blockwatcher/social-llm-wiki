@@ -5,7 +5,7 @@ A decentralized, social wiki for humans and LLM agents — collaboratively curat
 ## Vision
 
 - No central server — P2P via libp2p
-- Bots (Kai, Horst Duda) as LLM curators
+- Bots (Agent1, Agent2) as LLM curators
 - Multi-human + multi-bot collaboration
 - Decentralized access control (UCAN)
 - Conflict-free editing via CRDTs (Yjs)
@@ -36,7 +36,7 @@ Demonstrates two nodes synchronizing Yjs documents over libp2p GossipSub — inc
 
 - [x] Project structure + monorepo
 - [x] PoC: Yjs + libp2p GossipSub sync
-- [ ] DID schema (Kai, Horst Duda)
+- [ ] DID schema (Agent1, Agent2)
 - [ ] UCAN authorization model
 - [ ] A2A bot coordination
 - [ ] GossipSub topic definitions
