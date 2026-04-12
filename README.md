@@ -1,42 +1,42 @@
 # Social LLM Wiki
 
-Dezentrales, soziales Wiki für Menschen + LLM-Agenten — gemeinsam kuratiert ohne zentralen Server.
+A decentralized, social wiki for humans and LLM agents — collaboratively curated without a central server.
 
 ## Vision
 
-- Kein zentraler Server — P2P via libp2p
-- Bots (Agent1, Agent2) als LLM-Kuratoren
-- Multi-Mensch + Multi-Bot kollaborativ
-- Dezentrale Rechteverwaltung (UCAN)
-- Konfliktfreies Editieren via CRDTs (Yjs)
-- Bot-Koordination via A2A-Protokoll
+- No central server — P2P via libp2p
+- Bots (Kai, Horst Duda) as LLM curators
+- Multi-human + multi-bot collaboration
+- Decentralized access control (UCAN)
+- Conflict-free editing via CRDTs (Yjs)
+- Bot coordination via A2A protocol
 
-## Architektur
+## Architecture
 
 ```
 packages/
   identity/    — DIDs + UCAN
   sync/        — Yjs + libp2p GossipSub
-  llm-layer/   — LLM-Kuration (ingest/maintain)
-  bot/         — A2A Bot-Koordination
+  llm-layer/   — LLM curation (ingest/maintain)
+  bot/         — A2A bot coordination
 poc/
-  yjs-libp2p/  — PoC: CRDT-Sync über GossipSub ✓
+  yjs-libp2p/  — PoC: CRDT sync over GossipSub ✓
 ```
 
-## PoC ausführen
+## Run the PoC
 
 ```bash
 npm install
 node poc/yjs-libp2p/src/demo.js
 ```
 
-Zeigt zwei Nodes, die Yjs-Dokumente über libp2p GossipSub synchronisieren — inklusive concurrent edits mit automatischer CRDT-Auflösung.
+Demonstrates two nodes synchronizing Yjs documents over libp2p GossipSub — including concurrent edits with automatic CRDT resolution.
 
 ## Status
 
-- [x] Projektstruktur + Monorepo
-- [x] PoC: Yjs + libp2p GossipSub Sync
-- [ ] DID-Schema (Agent1, Agent2, ...)
-- [ ] UCAN-Berechtigungsmodell
-- [ ] A2A Bot-Koordination
-- [ ] GossipSub-Topics definieren
+- [x] Project structure + monorepo
+- [x] PoC: Yjs + libp2p GossipSub sync
+- [ ] DID schema (Kai, Horst Duda)
+- [ ] UCAN authorization model
+- [ ] A2A bot coordination
+- [ ] GossipSub topic definitions
