@@ -1,0 +1,17 @@
+{
+  "name": "@social-llm-wiki/mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP server — Wiki als Tool für Claude Code, Claude Desktop (Cowork) und andere MCP-Clients",
+  "bin": {
+    "wiki-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  }
+}
