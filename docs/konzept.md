@@ -212,13 +212,25 @@ Wenn beide Bots auf `groups/hiking/` schreiben:
 
 ---
 
+## Memory-Architektur
+
+Das Wiki unterscheidet zwischen Kurzzeitgedächtnis (`inbox/`), Staging (`review/`) und
+Langzeitgedächtnis (`wiki/`). Auto-Ingest-Channels füllen die Inbox automatisch;
+ein LLM-Review-Schritt schlägt Promotionen vor; der Nutzer entscheidet, was dauerhaft ins Wiki kommt.
+
+→ Details: [memory-architecture.md](memory-architecture.md)
+
+---
+
 ## Implementierungs-Reihenfolge (Vorschlag)
 
 1. ✅ PoC: Yjs + libp2p GossipSub Sync (fertig)
 2. DID-Schema für Kai + Horst Duda
 3. Namespace-Model + Yjs-Docs pro Namespace
-4. Erster Channel: `text/note` via Matrix
-5. LLM-Layer: `ingest` für `text/note`
-6. Erster Geo-Channel: `geo/track` (GPX)
-7. A2A-Protokoll zwischen Kai und Horst Duda
-8. UCAN-Berechtigungen (wenn Multi-User live geht)
+4. Inbox-Struktur + TTL-Mechanismus
+5. Erster Auto-Ingest-Channel: `email-imap`
+6. LLM-Review-Schritt: Kai analysiert Inbox, schreibt Kandidaten nach `review/`
+7. User-Supervision: Matrix-Notification + Approve/Reject
+8. Erster Geo-Channel: `geo/track` (GPX)
+9. A2A-Protokoll zwischen Kai und Horst Duda
+10. UCAN-Berechtigungen (wenn Multi-User live geht)
