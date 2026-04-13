@@ -3,26 +3,26 @@ import { join, relative } from 'node:path'
 import { existsSync } from 'node:fs'
 
 /**
- * wiki_list — Seiten eines Namespace auflisten
+ * wiki_list — List all pages in a namespace
  *
- * Gibt Dateibaum + Titel jeder Seite zurück.
+ * Returns a file tree with the title of each page.
  */
 export async function wikiList({ wikiRoot, namespace = '', subpath = '' }) {
   const base = join(wikiRoot, namespace, subpath)
 
   if (!existsSync(base)) {
-    return { content: [{ type: 'text', text: `Namespace/Pfad nicht gefunden: ${namespace}/${subpath}` }] }
+    return { content: [{ type: 'text', text: `Namespace/path not found: ${namespace}/${subpath}` }] }
   }
 
   const pages = await collectPages(base, base)
 
   if (pages.length === 0) {
-    return { content: [{ type: 'text', text: `Keine Seiten in ${namespace}/${subpath}` }] }
+    return { content: [{ type: 'text', text: `No pages found in ${namespace}/${subpath}` }] }
   }
 
   const lines = [
-    `## Wiki — ${namespace || 'alle'}${subpath ? '/' + subpath : ''}`,
-    `_${pages.length} Seite(n)_`,
+    `## Wiki — ${namespace || 'all'}${subpath ? '/' + subpath : ''}`,
+    `_${pages.length} page(s)_`,
     '',
   ]
 

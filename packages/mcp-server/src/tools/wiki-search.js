@@ -6,17 +6,16 @@ const EXCERPT_RADIUS = 120  // Zeichen vor/nach dem Treffer
 const MAX_RESULTS = 10
 
 /**
- * wiki_search — Wiki nach Stichwörtern durchsuchen
+ * wiki_search — Full-text search across wiki pages
  *
- * Durchsucht alle Markdown-Seiten im Wiki (optional auf einen
- * Namespace eingeschränkt) und gibt passende Seiten mit
- * Kontext-Ausschnitten zurück.
+ * Searches all Markdown pages in the wiki (optionally restricted
+ * to a namespace) and returns matching pages with context excerpts.
  */
 export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
   const base = join(wikiRoot, namespace)
 
   if (!existsSync(base)) {
-    return { content: [{ type: 'text', text: `Namespace nicht gefunden: ${namespace}` }] }
+    return { content: [{ type: 'text', text: `Namespace not found: ${namespace}` }] }
   }
 
   const pages = await collectPages(base, base)
@@ -42,12 +41,12 @@ export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
   }
 
   if (results.length === 0) {
-    return { content: [{ type: 'text', text: `Keine Treffer für „${query}"${namespace ? ` in ${namespace}` : ''}.` }] }
+    return { content: [{ type: 'text', text: `No results for "${query}"${namespace ? ` in ${namespace}` : ''}.` }] }
   }
 
   const lines = [
-    `## Suchergebnisse für „${query}"${namespace ? ` (${namespace})` : ''}`,
-    `_${results.length} Treffer_`,
+    `## Search results for "${query}"${namespace ? ` (${namespace})` : ''}`,
+    `_${results.length} match(es)_`,
     '',
   ]
 

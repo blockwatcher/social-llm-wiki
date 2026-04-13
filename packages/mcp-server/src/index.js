@@ -2,13 +2,13 @@
 /**
  * Social LLM Wiki — MCP Server
  *
- * Stellt das Wiki als Tools für jeden MCP-kompatiblen Client bereit:
+ * Exposes the wiki as tools for any MCP-compatible client:
  *   - Claude Code CLI  (settings.json → mcpServers)
  *   - Claude Desktop / Cowork  (claude_desktop_config.json → mcpServers)
- *   - Andere MCP-Clients (Cursor, Continue, ...)
+ *   - Other MCP clients (Cursor, Continue, ...)
  *
- * Starten: node packages/mcp-server/src/index.js
- * Debuggen: npm run inspect --workspace=@social-llm-wiki/mcp-server
+ * Start:  node packages/mcp-server/src/index.js
+ * Debug:  npm run inspect --workspace=@social-llm-wiki/mcp-server
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -32,14 +32,14 @@ const server = new McpServer({
 
 server.tool(
   'wiki_list',
-  'Listet alle Wiki-Seiten eines Namespace auf (Dateibaum + Titel). ' +
-  'Nutze dies um zu sehen was im Wiki vorhanden ist, bevor du wiki_read oder wiki_search aufrufst.',
+  'List all wiki pages in a namespace (file tree + titles). ' +
+  'Use this to explore what is available before calling wiki_read or wiki_search.',
   {
     namespace: z.string().optional().describe(
-      'Namespace z.B. "@darius", "@soenke", "groups/hiking". Leer = alle.',
+      'Namespace to list, e.g. "@darius", "@soenke", "groups/hiking". Empty = all.',
     ),
     subpath: z.string().optional().describe(
-      'Optionaler Unterordner, z.B. "reisen" oder "notizen".',
+      'Optional subfolder within the namespace, e.g. "reisen" or "notizen".',
     ),
   },
   async ({ namespace, subpath }) =>
@@ -50,11 +50,11 @@ server.tool(
 
 server.tool(
   'wiki_read',
-  'Liest eine einzelne Wiki-Seite und gibt den vollständigen Markdown-Inhalt zurück. ' +
-  'Pfad ist relativ zum Wiki-Root, z.B. "@darius/notizen/social-llm-wiki.md".',
+  'Read a single wiki page and return its full Markdown content. ' +
+  'Path is relative to the wiki root, e.g. "@darius/notizen/social-llm-wiki.md".',
   {
     path: z.string().describe(
-      'Relativer Pfad zur Wiki-Seite, z.B. "@darius/reisen/zugspitze.md".',
+      'Relative path to the wiki page, e.g. "@darius/reisen/zugspitze.md".',
     ),
   },
   async ({ path }) =>
@@ -65,15 +65,15 @@ server.tool(
 
 server.tool(
   'wiki_search',
-  'Durchsucht alle Wiki-Seiten nach einem Stichwort oder einer Phrase. ' +
-  'Gibt Treffer mit Kontext-Ausschnitten zurück. ' +
-  'Optional auf einen Namespace einschränken.',
+  'Search all wiki pages for a keyword or phrase. ' +
+  'Returns matching pages with context excerpts, sorted by hit count. ' +
+  'Optionally restrict the search to a specific namespace.',
   {
     query: z.string().describe(
-      'Suchbegriff oder Phrase, z.B. "libp2p" oder "Zugspitze".',
+      'Search term or phrase, e.g. "libp2p" or "Zugspitze".',
     ),
     namespace: z.string().optional().describe(
-      'Suche auf diesen Namespace einschränken, z.B. "@darius". Leer = Wiki-weit.',
+      'Restrict search to this namespace, e.g. "@darius". Empty = wiki-wide.',
     ),
   },
   async ({ query, namespace }) =>
@@ -84,32 +84,32 @@ server.tool(
 
 server.tool(
   'wiki_write_inbox',
-  'Speichert einen neuen Eintrag im Kurzzeitgedächtnis (inbox/). ' +
-  'Nutze dies wenn du eine Notiz, Beobachtung oder Information festhalten willst, ' +
-  'die später vom LLM-Review-Schritt ins Langzeitgedächtnis (wiki/) promoten werden kann. ' +
-  'Schreibe NICHT direkt in wiki/ — immer über inbox/ gehen.',
+  'Save a new entry to short-term memory (inbox/). ' +
+  'Use this whenever you want to record a note, observation, or piece of information ' +
+  'that can later be promoted to long-term memory (wiki/) by the LLM review step. ' +
+  'Do NOT write directly to wiki/ — always go through inbox/.',
   {
     content: z.string().describe(
-      'Inhalt der Notiz (Markdown).',
+      'Content of the note (Markdown).',
     ),
     title: z.string().optional().describe(
-      'Optionaler Titel der Notiz.',
+      'Optional title for the note.',
     ),
     channel: z.string().optional().describe(
-      'Channel/Kategorie, z.B. "notes", "tasks", "research". Default: "notes".',
+      'Channel/category, e.g. "notes", "tasks", "research". Default: "notes".',
     ),
     tags: z.array(z.string()).optional().describe(
-      'Tags als Array, z.B. ["projekt", "libp2p"].',
+      'Tags as an array, e.g. ["project", "libp2p"].',
     ),
     namespace: z.string().optional().describe(
-      'Namespace des Autors, z.B. "@darius". Default: "@darius".',
+      'Author namespace, e.g. "@darius". Default: "@darius".',
     ),
   },
   async ({ content, title, channel, tags, namespace }) =>
     wikiWriteInbox({ wikiRoot: WIKI_ROOT, content, title, channel, tags, namespace }),
 )
 
-// ─── Server starten ─────────────────────────────────────────────────────────
+// ─── Start server ───────────────────────────────────────────────────────────
 
 const transport = new StdioServerTransport()
 await server.connect(transport)

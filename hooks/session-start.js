@@ -2,10 +2,10 @@
 /**
  * Claude Code Hook: SessionStart
  *
- * Lädt relevante Wiki-Seiten als Kontext in die Session.
- * Konfiguration in ~/.claude/settings.json (siehe hooks/settings-example.json).
+ * Loads recent wiki pages as context into the session.
+ * Configuration in ~/.claude/settings.json (see hooks/settings-example.json).
  *
- * Output: JSON mit additionalContext → Claude sieht den Wiki-Inhalt am Sessionstart.
+ * Output: JSON with additionalContext → Claude sees wiki content at session start.
  */
 
 import { readdir, readFile, stat } from 'node:fs/promises'
@@ -17,7 +17,7 @@ const NAMESPACE = process.env.WIKI_NAMESPACE ?? '@darius'
 const MAX_PAGES = parseInt(process.env.WIKI_MAX_PAGES ?? '10')
 const MAX_CHARS_PER_PAGE = 600
 
-// Stdin lesen (Claude Code übergibt Session-Info als JSON)
+// Read stdin (Claude Code passes session info as JSON)
 let sessionInfo = {}
 try {
   const raw = await readAll(process.stdin)
@@ -27,11 +27,11 @@ try {
 const namespacePath = join(WIKI_ROOT, NAMESPACE)
 
 if (!existsSync(namespacePath)) {
-  // Wiki existiert noch nicht — kein Fehler, einfach nichts tun
+  // Wiki does not exist yet — no error, just skip
   process.exit(0)
 }
 
-// Alle Markdown-Seiten einlesen, nach letzter Änderung sortieren
+// Collect all Markdown pages, sort by last modified
 const pages = await collectPages(namespacePath)
 pages.sort((a, b) => b.mtime - a.mtime)
 const recent = pages.slice(0, MAX_PAGES)
@@ -43,7 +43,7 @@ if (recent.length === 0) {
 // Context-Text aufbauen
 const lines = [
   `## Wiki Memory (${NAMESPACE})`,
-  `_${recent.length} Seiten geladen aus ${relative(process.env.HOME ?? '', WIKI_ROOT)}/${NAMESPACE}/_`,
+  `_${recent.length} page(s) loaded from ${relative(process.env.HOME ?? '', WIKI_ROOT)}/${NAMESPACE}/_`,
   '',
 ]
 
@@ -61,7 +61,7 @@ for (const page of recent) {
 
 const additionalContext = lines.join('\n')
 
-// Als JSON ausgeben — Claude Code injiziert additionalContext in die Session
+// Output JSON — Claude Code injects additionalContext into the session
 console.log(JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'SessionStart',
@@ -69,7 +69,7 @@ console.log(JSON.stringify({
   },
 }))
 
-// --- Hilfsfunktionen ---
+// --- Helpers ---
 
 async function collectPages(dir, base = dir) {
   const entries = await readdir(dir, { withFileTypes: true })

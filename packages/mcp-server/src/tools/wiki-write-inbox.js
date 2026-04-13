@@ -2,11 +2,11 @@ import { writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
- * wiki_write_inbox — Eintrag ins Kurzzeitgedächtnis schreiben
+ * wiki_write_inbox — Write an entry to short-term memory
  *
- * Legt einen neuen Eintrag in wiki/inbox/<channel>/ an.
- * Gedacht für auto-ingest: Notizen, Snippets, Beobachtungen
- * die später im LLM-Review-Schritt promotet werden können.
+ * Creates a new entry in wiki/inbox/<channel>/.
+ * Intended for auto-ingest: notes, snippets, observations
+ * that can later be promoted in the LLM review step.
  */
 export async function wikiWriteInbox({
   wikiRoot,
@@ -52,7 +52,7 @@ ${title ? `# ${title}\n\n` : ''}${content}
   return {
     content: [{
       type: 'text',
-      text: `Eintrag gespeichert: inbox/${channel}/${filename}`,
+      text: `Entry saved: inbox/${channel}/${filename}`,
     }],
   }
 }

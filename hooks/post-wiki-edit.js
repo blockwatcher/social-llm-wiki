@@ -2,13 +2,12 @@
 /**
  * Claude Code Hook: PostToolUse (Write / Edit)
  *
- * Wenn Claude eine Datei in wiki/ schreibt oder editiert,
- * wird ein Maintenance-Trigger in inbox/triggers/ abgelegt.
- * Kai kann diese Trigger periodisch lesen und betroffene Seiten
- * im LLM-Review-Schritt neu kuratieren.
+ * When Claude writes or edits a file inside wiki/, a maintenance
+ * trigger is dropped into inbox/triggers/. Kai reads these triggers
+ * periodically and re-curates the affected pages in the LLM review step.
  *
  * Matcher in settings.json: "Write|Edit"
- * Nur aktiv wenn die Datei innerhalb von WIKI_ROOT liegt.
+ * Only active when the file is inside WIKI_ROOT.
  */
 
 import { writeFile, mkdir } from 'node:fs/promises'
@@ -17,7 +16,7 @@ import { join, resolve } from 'node:path'
 const WIKI_ROOT = resolve(process.env.WIKI_ROOT ?? '/home/darius/social-llm-wiki/wiki')
 const TRIGGERS_DIR = join(WIKI_ROOT, 'inbox', 'triggers')
 
-// Stdin: PostToolUse-Payload von Claude Code
+// Stdin: PostToolUse payload from Claude Code
 let payload = {}
 try {
   const raw = await readAll(process.stdin)
@@ -26,7 +25,7 @@ try {
 
 const filePath = payload?.tool_input?.file_path ?? payload?.tool_input?.path ?? ''
 
-// Nur reagieren wenn Datei innerhalb des Wiki-Roots liegt
+// Only act when the file is inside the wiki root
 if (!filePath || !resolve(filePath).startsWith(WIKI_ROOT)) {
   process.exit(0)
 }
@@ -44,7 +43,7 @@ await writeFile(triggerFile, JSON.stringify({
   triggered: now.toISOString(),
 }, null, 2), 'utf8')
 
-// --- Hilfsfunktionen ---
+// --- Helpers ---
 
 function readAll(stream) {
   return new Promise((resolve, reject) => {
