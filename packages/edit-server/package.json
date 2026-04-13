@@ -1,0 +1,14 @@
+{
+  "name": "@social-llm-wiki/edit-server",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Lightweight edit server for Quartz wiki pages — split-view Markdown editor with live preview",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "marked": "^15.0.12"
+  }
+}
