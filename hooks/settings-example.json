@@ -1,0 +1,45 @@
+{
+  "_comment": "Diesen Block in ~/.claude/settings.json einfügen.",
+  "_comment2": "WIKI_ROOT anpassen falls das Repo woanders liegt.",
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "WIKI_ROOT=/home/darius/social-llm-wiki/wiki WIKI_NAMESPACE=@darius WIKI_MAX_PAGES=8 node /home/darius/social-llm-wiki/hooks/session-start.js",
+            "timeout": 10000,
+            "statusMessage": "Wiki-Kontext laden..."
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "WIKI_ROOT=/home/darius/social-llm-wiki/wiki node /home/darius/social-llm-wiki/hooks/session-stop.js",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "WIKI_ROOT=/home/darius/social-llm-wiki/wiki node /home/darius/social-llm-wiki/hooks/post-wiki-edit.js",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}
