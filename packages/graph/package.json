@@ -1,0 +1,11 @@
+{
+  "name": "@social-llm-wiki/graph",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Knowledge graph analysis for the wiki — link extraction, gap detection, orphan finder, cluster analysis",
+  "main": "src/index.js",
+  "scripts": {
+    "analyze": "node src/index.js"
+  },
+  "dependencies": {}
+}

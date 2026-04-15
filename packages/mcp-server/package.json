@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@social-llm-wiki/graph": "*",
     "zod": "^4.3.6"
   }
 }

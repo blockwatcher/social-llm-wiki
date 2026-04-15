@@ -20,6 +20,8 @@ import { wikiList } from './tools/wiki-list.js'
 import { wikiRead } from './tools/wiki-read.js'
 import { wikiSearch } from './tools/wiki-search.js'
 import { wikiWriteInbox } from './tools/wiki-write-inbox.js'
+import { wikiGraph } from './tools/wiki-graph.js'
+import { wikiGaps } from './tools/wiki-gaps.js'
 
 const WIKI_ROOT = resolve(process.env.WIKI_ROOT ?? '/home/darius/social-llm-wiki/wiki')
 
@@ -107,6 +109,39 @@ server.tool(
   },
   async ({ content, title, channel, tags, namespace }) =>
     wikiWriteInbox({ wikiRoot: WIKI_ROOT, content, title, channel, tags, namespace }),
+)
+
+// ─── Tool: wiki_graph ───────────────────────────────────────────────────────
+
+server.tool(
+  'wiki_graph',
+  'Analyze the knowledge graph of a wiki namespace. ' +
+  'Returns page count, link count, clusters, orphans, and bridge pages. ' +
+  'Use wiki_gaps for gap analysis and research question prompts.',
+  {
+    namespace: z.string().optional().describe(
+      'Namespace to analyze, e.g. "@darius". Empty = all namespaces.',
+    ),
+  },
+  async ({ namespace }) =>
+    wikiGraph({ wikiRoot: WIKI_ROOT, namespace }),
+)
+
+// ─── Tool: wiki_gaps ────────────────────────────────────────────────────────
+
+server.tool(
+  'wiki_gaps',
+  'Find knowledge gaps in the wiki — clusters of pages that are not connected to each other. ' +
+  'Each gap comes with a targeted research prompt to generate non-obvious insights. ' +
+  'Also reports orphan pages, missing pages, and structural lint issues. ' +
+  'This is the core InfraNodus approach: use graph structure to escape generic LLM answers.',
+  {
+    namespace: z.string().optional().describe(
+      'Namespace to analyze, e.g. "@darius". Empty = all namespaces.',
+    ),
+  },
+  async ({ namespace }) =>
+    wikiGaps({ wikiRoot: WIKI_ROOT, namespace }),
 )
 
 // ─── Start server ───────────────────────────────────────────────────────────
