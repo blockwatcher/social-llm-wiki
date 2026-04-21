@@ -1,10 +1,5 @@
-/**
- * Maintain: Bestehende Wiki-Seite aktualisieren/verbessern
- *
- * Input:  Vorhandene Seite + neue Informationen
- * Output: Aktualisierte Seite (als Yjs-Update-Delta)
- */
+// maintain: update an existing wiki page with new information → Yjs delta
 export async function maintain(_page, _newInfo, _options = {}) {
-  // TODO: LLM-Call → Diff → Yjs-Update
+  // TODO: LLM call → diff → Yjs update
   throw new Error('Not yet implemented')
 }

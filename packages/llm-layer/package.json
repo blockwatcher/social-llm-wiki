@@ -4,5 +4,7 @@
   "type": "module",
   "main": "src/index.js",
   "description": "LLM-Kuration nach Karpathy ingest/maintain pattern",
-  "dependencies": {}
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0"
+  }
 }

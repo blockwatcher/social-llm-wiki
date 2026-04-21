@@ -1,0 +1,15 @@
+[Unit]
+Description=Wiki Review Loop (inbox → review/candidates)
+After=network.target
+
+[Service]
+Type=oneshot
+User=darius
+Group=darius
+WorkingDirectory=/home/darius/social-llm-wiki
+ExecStart=/usr/bin/node packages/llm-layer/src/review-cli.js
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/darius/.local/bin
+Environment=HOME=/home/darius
+EnvironmentFile=/home/darius/social-llm-wiki/.env
+StandardOutput=append:/home/darius/social-llm-wiki/logs/review.log
+StandardError=append:/home/darius/social-llm-wiki/logs/review.error.log

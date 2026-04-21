@@ -21,15 +21,37 @@ No central API. No shared database. Just files and sync.
 
 ---
 
-## Short-Term vs. Long-Term Memory
+## Memory Layers
 
-The key architectural distinction. Inspired by human cognitive memory models.
+Inspired by human cognitive memory models.
 
 ```
-inbox/          Short-term memory   — raw, auto-ingested, time-limited
-review/         Staging             — LLM proposals, awaiting user decision
+raw/            Sensory buffer      — original sources, permanent, LLM never reads directly
+inbox/          Short-term memory   — normalized, auto-ingested, time-limited (30d TTL)
+review/         Working memory      — LLM proposals, awaiting user decision
 wiki/           Long-term memory    — curated, linked, permanent
 ```
+
+### Sensory Buffer: `raw/`
+
+- Stores original, unprocessed sources exactly as received
+- **Never read directly by LLM** — only the normalized `inbox/` entry is used
+- Permanent storage for text and geo sources; media stored as hash references only
+- Enables re-processing with future (better) LLM models
+- Provides audit trail: what did Kai actually read?
+- Enables recovery from inconsistencies in `wiki/`
+
+```
+raw/
+  text/           emails, notes, web clips, feeds, transcripts  → permanent
+  geo/            GPX / FIT tracks                              → permanent
+  media/          photos, audio                                 → hash reference only
+    2026-04-12-zugspitze.ref   ← contains path + SHA256, not the blob itself
+```
+
+**Storage rationale:** Text and geo sources stay small over years (a year of emails ≈ a few MB).
+Media blobs are kept in an external store (Nextcloud, local drive) referenced by an immutable hash.
+For Phase 1 on RPi 5: store everything inline — migrate media externally only when storage pressure is real.
 
 ### Short-Term Memory: `inbox/`
 
@@ -88,8 +110,11 @@ External Source
       ▼
   Channel               (email-imap, matrix-watch, gps-track, ...)
       │
+      ├──► raw/         original blob stored permanently (text/geo)
+      │                 or hash reference written (media)
+      │
       ▼
-  inbox/                minimal processing — structure + metadata only
+  inbox/                normalized Markdown + frontmatter, 30d TTL
       │
       │  periodic trigger (daily / on demand)
       ▼
@@ -190,11 +215,12 @@ wiki/
     projekte/       Shared — collaborative projects
     ...
 
+raw/                Sensory buffer — personal only, never synced, permanent
 inbox/              Short-term — personal only, never synced to peers
 review/             Staging — personal only, user-supervised
 ```
 
-`inbox/` and `review/` are **never synced** — they are strictly personal.
+`raw/`, `inbox/`, and `review/` are **never synced** — they are strictly personal.
 Only promoted content in `wiki/` participates in P2P sync.
 
 ---

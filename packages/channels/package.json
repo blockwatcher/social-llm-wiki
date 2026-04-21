@@ -1,0 +1,10 @@
+{
+  "name": "@social-llm-wiki/channels",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.js",
+  "description": "Auto-ingest channels (file-watch, email-imap, ...)",
+  "dependencies": {
+    "@social-llm-wiki/llm-layer": "*"
+  }
+}

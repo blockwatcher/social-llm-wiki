@@ -1,0 +1,23 @@
+[Unit]
+Description=Wiki File-Watch Channel (auto-ingest drop folder)
+After=network.target
+
+[Service]
+Type=simple
+User=darius
+Group=darius
+WorkingDirectory=/home/darius/social-llm-wiki
+ExecStart=/usr/bin/node packages/channels/src/watch-cli.js /home/darius/drop /home/darius/social-llm-wiki/wiki
+Restart=always
+RestartSec=10
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=15
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/darius/.local/bin
+Environment=HOME=/home/darius
+EnvironmentFile=/home/darius/social-llm-wiki/.env
+StandardOutput=append:/home/darius/social-llm-wiki/logs/file-watch.log
+StandardError=append:/home/darius/social-llm-wiki/logs/file-watch.error.log
+
+[Install]
+WantedBy=multi-user.target

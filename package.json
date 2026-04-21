@@ -11,6 +11,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "poc:sync": "node poc/yjs-libp2p/src/node-a.js"
+    "poc:sync": "node poc/yjs-libp2p/src/node-a.js",
+    "watch": "node packages/channels/src/watch-cli.js",
+    "review": "node packages/llm-layer/src/review-cli.js"
   }
 }
