@@ -3,7 +3,7 @@
  * Claude Code Hook: PostToolUse (Write / Edit)
  *
  * When Claude writes or edits a file inside wiki/, a maintenance
- * trigger is dropped into inbox/triggers/. Kai reads these triggers
+ * trigger is dropped into inbox/triggers/. Agent1 reads these triggers
  * periodically and re-curates the affected pages in the LLM review step.
  *
  * Matcher in settings.json: "Write|Edit"

@@ -34,7 +34,7 @@ session-start.js ──► reads wiki/@darius/ ──► Claude sees wiki as con
 session-stop.js ──► inbox/claude-sessions/YYYY-MM-DD-session.md
     │
     ▼  (later, periodic)
-Kai LLM-Review ──► review/candidates/ ──► user approves ──► wiki/ (long-term)
+Agent1 LLM-Review ──► review/candidates/ ──► user approves ──► wiki/ (long-term)
 ```
 
 ---
@@ -119,7 +119,7 @@ promoted: false
 
 If a transcript file is available, the last 5 user messages are included
 as a quick reference. The `promoted: false` flag marks this as unreviewed —
-Kai's LLM-review step will later decide whether to promote it to `wiki/`.
+Agent1's LLM-review step will later decide whether to promote it to `wiki/`.
 
 **TTL:** Entries older than 30 days are automatically deleted by the
 cleanup script (to be implemented — see open questions).
@@ -131,7 +131,7 @@ cleanup script (to be implemented — see open questions).
 **Claude Code event:** `PostToolUse` — fires after every `Write` or `Edit` tool call
 
 When Claude writes or edits a file inside `wiki/`, this hook drops a small
-JSON trigger file into `wiki/inbox/triggers/`. Kai reads these triggers
+JSON trigger file into `wiki/inbox/triggers/`. Agent1 reads these triggers
 periodically and re-curates the affected pages (checks links, removes
 duplication, updates related pages).
 
@@ -284,4 +284,4 @@ Full Claude Code hook documentation: `claude hooks` or `/hooks` in-session.
   the current working directory or recent conversation to load *relevant* pages
 - **Multi-namespace**: Load both `@darius/` and `groups/hiking/` in one session
 - **Review notification**: After `session-stop.js` accumulates N entries,
-  trigger a Matrix message prompting Kai's LLM-review step
+  trigger a Matrix message prompting Agent1's LLM-review step

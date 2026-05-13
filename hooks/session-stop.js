@@ -5,7 +5,7 @@
  * Saves a session entry to wiki/inbox/claude-sessions/ at the end of each session.
  * Acts as automatic short-term memory: what happened during this session?
  *
- * The LLM review step (Kai) later decides whether to promote it to a wiki page.
+ * The LLM review step (Agent1) later decides whether to promote it to a wiki page.
  */
 
 import { writeFile, mkdir, readFile } from 'node:fs/promises'

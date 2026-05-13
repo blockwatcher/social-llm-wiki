@@ -12,8 +12,8 @@ does so through a common interface: local files, synchronized via libp2p.
 
 ```
 Claude Code (CLI)     reads  CLAUDE.md + wiki pages (context injection)
-nanoclaw / Kai        reads + writes wiki/ (personal memory)
-clowbot / Horst Duda  reads + writes wiki/ (via libp2p sync)
+nanoclaw / Agent1        reads + writes wiki/ (personal memory)
+clowbot / Agent2  reads + writes wiki/ (via libp2p sync)
 other future systems  same interface — files + libp2p
 ```
 
@@ -38,7 +38,7 @@ wiki/           Long-term memory    — curated, linked, permanent
 - **Never read directly by LLM** — only the normalized `inbox/` entry is used
 - Permanent storage for text and geo sources; media stored as hash references only
 - Enables re-processing with future (better) LLM models
-- Provides audit trail: what did Kai actually read?
+- Provides audit trail: what did Agent1 actually read?
 - Enables recovery from inconsistencies in `wiki/`
 
 ```
@@ -78,7 +78,7 @@ inbox/
 
 ### Staging: `review/`
 
-- Populated periodically by the LLM (Kai / Horst Duda)
+- Populated periodically by the LLM (Agent1 / Agent2)
 - LLM reads inbox, groups by topic, drafts candidate wiki pages
 - User receives a notification (e.g. via Matrix):
   > *"4 new candidates this week: Zugspitze hike, Meeting with Sönke,
@@ -89,7 +89,7 @@ inbox/
 ```
 review/
   candidates/
-    2026-04-13-zugspitze-hike.md      ← drafted by Kai, awaiting approval
+    2026-04-13-zugspitze-hike.md      ← drafted by Agent1, awaiting approval
     2026-04-13-libp2p-notes.md
 ```
 
@@ -118,7 +118,7 @@ External Source
       │
       │  periodic trigger (daily / on demand)
       ▼
-  LLM Review            Kai reads inbox, groups topics,
+  LLM Review            Agent1 reads inbox, groups topics,
       │                 drafts candidate pages in review/
       │
       ▼
@@ -184,19 +184,19 @@ automatically inject relevant wiki pages:
 - The existing Claude Code memory system (`~/.claude/projects/.../memory/`)
   can be backed by the wiki — memories written there sync into `wiki/@darius/`
 
-### nanoclaw / Kai
+### nanoclaw / Agent1
 
 nanoclaw already has `memory/wiki/` as a local Quartz wiki — this is the PoC.
 Next steps:
-- Kai actively writes to `wiki/` (not just reads)
-- Kai runs the LLM review step periodically
-- Kai sends review notifications via Matrix
+- Agent1 actively writes to `wiki/` (not just reads)
+- Agent1 runs the LLM review step periodically
+- Agent1 sends review notifications via Matrix
 
-### clowbot / Horst Duda
+### clowbot / Agent2
 
-Same architecture as Kai, but in Sönke's namespace.
+Same architecture as Agent1, but in Sönke's namespace.
 Shared namespaces (`groups/`) are synced between both nodes via libp2p GossipSub.
-Coordination between Kai and Horst Duda happens via A2A protocol.
+Coordination between Agent1 and Agent2 happens via A2A protocol.
 
 ---
 
@@ -204,11 +204,11 @@ Coordination between Kai and Horst Duda happens via A2A protocol.
 
 ```
 wiki/
-  @darius/          Personal long-term memory (Darius + Kai)
+  @darius/          Personal long-term memory (Darius + Agent1)
     reisen/
     notizen/
     projekte/
-  @soenke/          Personal long-term memory (Sönke + Horst Duda)
+  @soenke/          Personal long-term memory (Sönke + Agent2)
     ...
   groups/
     hiking/         Shared — both can read and write

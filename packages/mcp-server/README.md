@@ -135,7 +135,7 @@ Speichert einen neuen Eintrag in `wiki/inbox/<channel>/`.
 Dies ist der korrekte Weg wie Claude Informationen festhalten soll —
 **niemals direkt in `wiki/` schreiben**, immer über `inbox/`.
 
-Der LLM-Review-Schritt (Kai) entscheidet später ob der Eintrag ins
+Der LLM-Review-Schritt (Agent1) entscheidet später ob der Eintrag ins
 Langzeitgedächtnis (`wiki/`) promoten wird.
 
 **Parameter:**
@@ -302,7 +302,7 @@ der MCP Server wird für gezielte Abfragen und das Schreiben in die Inbox genutz
 ## Geplante Erweiterungen
 
 - `wiki_promote` — Inbox-Eintrag nach Benutzer-Freigabe in `wiki/` promoten
-- `wiki_write_page` — Direkt eine Wiki-Seite anlegen/aktualisieren (nur für Kai/Horst Duda)
+- `wiki_write_page` — Direkt eine Wiki-Seite anlegen/aktualisieren (nur für Agent1/Agent2)
 - `wiki_recent` — Zuletzt geänderte Seiten abrufen
 - Namespace-Filter für alle Tools
 - Volltextsuche mit Meilisearch (wenn verfügbar)

@@ -5,8 +5,8 @@
  * Jeder Bot hat eine eigene DID-Identität und UCAN-Berechtigungen.
  *
  * Bekannte Bots:
- *   - Kai        — persönlicher Assistent (Darius)
- *   - Horst Duda — Sönkes Bot
+ *   - Agent1        — persönlicher Assistent (Darius)
+ *   - Agent2 — Sönkes Bot
  */
 
 export { createBot } from './bot.js'

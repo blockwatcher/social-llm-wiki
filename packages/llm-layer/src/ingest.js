@@ -5,7 +5,7 @@ import { join } from 'node:path'
 const client = new Anthropic()
 
 // Cached: stable across all ingest calls — only changes when we update the prompt
-const SYSTEM_PROMPT = `You are Kai, a personal wiki assistant. Transform raw input into a structured wiki page.
+const SYSTEM_PROMPT = `You are Agent1, a personal wiki assistant. Transform raw input into a structured wiki page.
 
 Output a Markdown document with:
 1. YAML frontmatter: title (string), tags (array of lowercase strings), schema (one of: text/note, text/article, text/transcript, geo/track, geo/poi, media/photo)

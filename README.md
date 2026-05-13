@@ -7,7 +7,7 @@ Personal memory for your agent, collective memory for your group, social memory 
 ## Vision
 
 - No central server — P2P via libp2p
-- Bots (Kai, Horst Duda) as LLM curators
+- Bots (Agent1, Agent2) as LLM curators
 - Multi-human + multi-bot collaboration
 - Decentralized access control (UCAN)
 - Conflict-free editing via CRDTs (Yjs)
@@ -81,7 +81,7 @@ Implements the Karpathy ingest/maintain pattern: raw input → structured inbox 
 
 **`ingest(raw, options)`** — Normalizes raw text through Claude:
 - Saves the original to `raw/text/` (permanent, never lost)
-- Calls Claude with a cached system prompt (Kai persona)
+- Calls Claude with a cached system prompt (Agent1 persona)
 - Extracts title, tags, summary, and key concepts
 - Writes a structured Markdown entry with frontmatter to `inbox/`
 
@@ -169,7 +169,7 @@ wiki/      Long-term         — curated, linked, P2P-synced, permanent
 Only `wiki/` participates in P2P sync. `raw/`, `inbox/`, and `review/` are strictly personal.
 
 Auto-ingest channels feed `inbox/` (email, Matrix, GPS tracks, RSS, file-drop, ...).
-Kai reviews periodically and proposes promotions — you decide what stays.
+Agent1 reviews periodically and proposes promotions — you decide what stays.
 
 See [`docs/memory-architecture.md`](docs/memory-architecture.md) for the full model.
 
@@ -296,7 +296,7 @@ Service files are in the repo root (`wiki-file-watch.service`, `wiki-review.serv
 
 ### Planned
 
-- [ ] `packages/identity` — DID schema (Kai, Horst Duda) + UCAN authorization
+- [ ] `packages/identity` — DID schema (Agent1, Agent2) + UCAN authorization
 - [ ] `packages/bot` — A2A bot coordination protocol
 - [ ] Auto-ingest channels: email-imap, Matrix, RSS, GPS tracks, voice memos
 - [ ] LLM review notifications (Matrix)

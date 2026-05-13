@@ -1,6 +1,6 @@
 # Social LLM Wiki
 
-Dezentrales, soziales Wiki — gemeinsam kuratiert durch Menschen und LLM-Agenten (Kai, Horst Duda).
+Dezentrales, soziales Wiki — gemeinsam kuratiert durch Menschen und LLM-Agenten (Agent1, Agent2).
 
 ## Architektur
 
@@ -22,7 +22,7 @@ packages/
   identity/    — DIDs + UCAN Berechtigungsmodell
   sync/        — Yjs + libp2p GossipSub Sync-Layer
   llm-layer/   — LLM-Kuration (ingest/maintain pattern)
-  bot/         — A2A Bot-Koordination (Kai, Horst Duda)
+  bot/         — A2A Bot-Koordination (Agent1, Agent2)
 poc/
   yjs-libp2p/  — PoC: CRDT-Sync über libp2p GossipSub
 ```
@@ -36,6 +36,6 @@ poc/
 
 ## Offene Fragen (Stand April 2026)
 
-- Konfliktauflösung zwischen Kai- und Horst-Duda-Edits
+- Konfliktauflösung zwischen Agent1- und Agent2-Edits
 - UCAN vs. einfacherer Auth-Ansatz für Phase 1
 - Details A2A/libp2p-Implementierung (Klärung mit Sönke läuft)

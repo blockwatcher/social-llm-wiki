@@ -51,12 +51,12 @@ await new Promise((r) => setTimeout(r, 800))
 // --- Schritt 3: Concurrent edits auf "home" ---
 console.log('\n[Demo] Schritt 3: Concurrent edits auf "home" von A und B')
 // A editiert "home"
-homeA.insert(homeA.length, '\n— Edit von Kai (Node-A)')
+homeA.insert(homeA.length, '\n— Edit von Agent1 (Node-A)')
 
 // B hat jetzt auch "home" (via Sync) — concurrent edit
 const homeB = b.pages.get('home')
 if (homeB) {
-  homeB.insert(homeB.length, '\n— Edit von Horst Duda (Node-B)')
+  homeB.insert(homeB.length, '\n— Edit von Agent2 (Node-B)')
 }
 
 await new Promise((r) => setTimeout(r, 1000))

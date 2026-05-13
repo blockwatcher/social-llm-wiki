@@ -3,7 +3,7 @@
  *
  * Analyzes the wiki's link structure to find clusters, gaps, orphans,
  * and bridge pages. The gap analysis is the core feature — it identifies
- * unconnected areas of knowledge and generates prompts for Kai to explore.
+ * unconnected areas of knowledge and generates prompts for Agent1 to explore.
  *
  * CLI usage:
  *   WIKI_ROOT=./wiki node packages/graph/src/index.js [@darius]

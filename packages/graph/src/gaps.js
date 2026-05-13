@@ -7,7 +7,7 @@
  */
 
 /**
- * Analyze the graph for gaps and generate prompts for Kai.
+ * Analyze the graph for gaps and generate prompts for Agent1.
  *
  * @param {{ nodes, clusters, orphans, dangling, bridges }} graph
  * @returns {GapReport}

@@ -36,11 +36,11 @@ Namespaces sind separate Yjs-Dokument-Scopes mit eigenen Berechtigungen.
 
 ```
 wiki/
-  @darius/            ← Persönlicher Wiki (Kai ist LLM-Kurator)
+  @darius/            ← Persönlicher Wiki (Agent1 ist LLM-Kurator)
     reisen/
     notizen/
     projekte/
-  @soenke/            ← Persönlicher Wiki (Horst Duda ist LLM-Kurator)
+  @soenke/            ← Persönlicher Wiki (Agent2 ist LLM-Kurator)
     ...
   groups/
     hiking/           ← Geteilte Wandergruppe (beide schreibend)
@@ -49,8 +49,8 @@ wiki/
 ```
 
 Schreibrechte pro Namespace:
-- `@darius/` → nur Darius + Kai
-- `@soenke/` → nur Sönke + Horst Duda
+- `@darius/` → nur Darius + Agent1
+- `@soenke/` → nur Sönke + Agent2
 - `groups/*` → alle Mitglieder der Gruppe (via UCAN-Delegation)
 
 **Phase 1** (vor UCAN): einfache Namespace-Strings + Yjs-Docs pro Namespace genügen.
@@ -91,7 +91,7 @@ Quelle → Channel → ChannelEvent → LLM-Layer → Wiki-Seite(n)
 ### Channel-Typen
 
 **Push** — Daten kommen zum System:
-- Matrix-Nachrichten (Kai/Horst Duda als primäres Interface)
+- Matrix-Nachrichten (Agent1/Agent2 als primäres Interface)
 - Watched Folder / Datei-Drop
 - Webhook (Shortcuts, n8n, IFTTT)
 - CLI (`wiki add "..."`)
@@ -103,8 +103,8 @@ Quelle → Channel → ChannelEvent → LLM-Layer → Wiki-Seite(n)
 - APIs (Wetter, Strava, OSM, ...)
 
 **Interaktiv** — Konversation als Channel:
-- Kai-Bot (Darius)
-- Horst Duda (Sönke)
+- Agent1-Bot (Darius)
+- Agent2 (Sönke)
 
 ### Schema-Hierarchie
 
@@ -177,7 +177,7 @@ Nach dem Karpathy-Muster gibt es zwei Operationen:
   - Qualitätssicherung (Links prüfen, Dopplungen entfernen)
   - Läuft periodisch oder getriggert
 
-Bots (Kai, Horst Duda) führen beide Operationen aus und koordinieren sich via A2A-Protokoll
+Bots (Agent1, Agent2) führen beide Operationen aus und koordinieren sich via A2A-Protokoll
 wenn sie an gemeinsamen Namespaces arbeiten.
 
 ---
@@ -185,7 +185,7 @@ wenn sie an gemeinsamen Namespaces arbeiten.
 ## Bot-Koordination (A2A)
 
 ```
-Kai  ←──A2A──→  Horst Duda
+Agent1  ←──A2A──→  Agent2
  │                   │
  ▼                   ▼
 @darius/         @soenke/
@@ -225,12 +225,12 @@ ein LLM-Review-Schritt schlägt Promotionen vor; der Nutzer entscheidet, was dau
 ## Implementierungs-Reihenfolge (Vorschlag)
 
 1. ✅ PoC: Yjs + libp2p GossipSub Sync (fertig)
-2. DID-Schema für Kai + Horst Duda
+2. DID-Schema für Agent1 + Agent2
 3. Namespace-Model + Yjs-Docs pro Namespace
 4. Inbox-Struktur + TTL-Mechanismus
 5. Erster Auto-Ingest-Channel: `email-imap`
-6. LLM-Review-Schritt: Kai analysiert Inbox, schreibt Kandidaten nach `review/`
+6. LLM-Review-Schritt: Agent1 analysiert Inbox, schreibt Kandidaten nach `review/`
 7. User-Supervision: Matrix-Notification + Approve/Reject
 8. Erster Geo-Channel: `geo/track` (GPX)
-9. A2A-Protokoll zwischen Kai und Horst Duda
+9. A2A-Protokoll zwischen Agent1 und Agent2
 10. UCAN-Berechtigungen (wenn Multi-User live geht)

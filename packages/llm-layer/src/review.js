@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 
 const client = new Anthropic()
 
-const REVIEW_SYSTEM_PROMPT = `You are Kai, a personal wiki assistant. Your task is to review inbox entries and decide which ones are worth keeping in the long-term wiki.
+const REVIEW_SYSTEM_PROMPT = `You are Agent1, a personal wiki assistant. Your task is to review inbox entries and decide which ones are worth keeping in the long-term wiki.
 
 For each inbox entry you receive, you will:
 1. Assess whether it contains information worth preserving long-term (skip ephemeral/trivial content)
