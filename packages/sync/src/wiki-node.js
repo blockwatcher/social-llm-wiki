@@ -20,6 +20,31 @@ function topicFor(namespace) {
 // a joining peer misses all prior updates. This protocol closes that gap.
 const SYNC_PROTOCOL = '/wiki-sync/1.0.0'
 
+// Decode-level caps on a single incoming GossipSub RPC frame.
+//
+// SECURITY (CVE-2026-46679): @chainsafe/libp2p-gossipsub@14.x decodes every RPC
+// field with an *unbounded* default (`maxSubscriptions: Infinity`, and likewise
+// for messages / ihave / iwant / idontwant / control / peerInfos). An
+// unauthenticated peer can pack one 4 MB frame with ~349k unique-topic SUBSCRIBE
+// entries (~22x heap amplification) and crash the node's Node.js heap in seconds.
+// We accept remote CRDT updates with no authorization (see docs/sync-architecture.md
+// "Security Considerations"), so any reachable peer can mount this attack.
+//
+// The fix landed in the renamed package @libp2p/gossipsub@>=15.0.23, but that line
+// requires @libp2p/interface@^3 (a full libp2p 2.x -> 3.x stack migration). Since
+// 14.x already exposes the `decodeRpcLimits` option, we backport the upstream caps
+// by value — these are the exact finite defaults from @libp2p/gossipsub@16.0.3,
+// which removes the per-frame amplification that makes the DoS practical.
+const GOSSIPSUB_DECODE_LIMITS = {
+  maxSubscriptions: 5000,
+  maxMessages: 5000,
+  maxIhaveMessageIDs: 5000,
+  maxIwantMessageIDs: 5000,
+  maxControlMessages: 5000,
+  maxIdontwantMessageIDs: 512, // GossipsubIdontwantMaxMessages
+  maxPeerInfos: 16,            // GossipsubPrunePeers
+}
+
 function mergeUint8Arrays(chunks) {
   const total = chunks.reduce((n, c) => n + c.length, 0)
   const out = new Uint8Array(total)
@@ -85,6 +110,7 @@ export async function createWikiNode({
       pubsub: gossipsub({
         emitSelf: false,
         allowPublishToZeroTopicPeers: true,
+        decodeRpcLimits: GOSSIPSUB_DECODE_LIMITS, // CVE-2026-46679 mitigation
       }),
     },
   })
