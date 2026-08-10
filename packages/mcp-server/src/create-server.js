@@ -112,22 +112,22 @@ export function createWikiServer() {
 
   server.tool(
     'wiki_write_page',
-    'Create or update a curated page in the shared "social" wiki branch, ' +
-    'co-edited by Darius and Lukas. Unlike wiki_write_inbox (short-term, ' +
-    'promoted later), this writes a finished page DIRECTLY into ' +
-    'pages/social/<topic>/. Read the current page with wiki_read first, then ' +
-    'write back the full updated Markdown body. Writes are restricted to the ' +
-    'social branch only.',
+    'Create or update a curated page in the shared wiki group (pages/social/<group>/, ' +
+    'default group darius-lukas), co-edited over P2P sync. Any topic is allowed — ' +
+    'organize freely with the optional `folder`. Unlike wiki_write_inbox (short-term, ' +
+    'promoted later), this writes a finished page directly. Read the current page with ' +
+    'wiki_read first, then write back the full updated Markdown body. Writes are hard-' +
+    'restricted to the shared group folder.',
     {
-      topic: z.enum(['laermzentrale', 'go-rechenkern']).describe(
-        'Which shared sub-branch the page belongs to.',
-      ),
       slug: z.string().describe(
         'Page slug (lowercase letters, digits, hyphens), e.g. "immissionsschutz-veranstaltungen".',
       ),
       title: z.string().describe('Human-readable page title.'),
       content: z.string().describe(
         'Full Markdown body of the page (without frontmatter and without the top-level # title — those are generated).',
+      ),
+      folder: z.string().optional().describe(
+        'Optional subfolder within the group to organize by topic, e.g. "laermzentrale" or "go-rechenkern" or "notizen". Nested paths like "a/b" allowed. Omit for a top-level page.',
       ),
       tags: z.array(z.string()).optional().describe('Tags, e.g. ["tifl", "messsystem"].'),
       author: z.string().describe(
@@ -137,8 +137,8 @@ export function createWikiServer() {
         'Optional one-sentence summary rendered under the title.',
       ),
     },
-    async ({ topic, slug, title, content, tags, author, summary }) =>
-      wikiWritePage({ wikiRoot: WIKI_ROOT, topic, slug, title, content, tags, author, summary }),
+    async ({ slug, title, content, folder, tags, author, summary }) =>
+      wikiWritePage({ wikiRoot: WIKI_ROOT, slug, title, content, folder, tags, author, summary }),
   )
 
   // ─── Tool: wiki_graph ─────────────────────────────────────────────────────

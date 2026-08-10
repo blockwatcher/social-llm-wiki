@@ -1,24 +1,25 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises'
-import { join, resolve, sep } from 'node:path'
+import { resolve, sep } from 'node:path'
 
 /**
- * wiki_write_page — Create or update a page in the shared "social" branch.
+ * wiki_write_page — Create or update a page in a shared wiki group.
  *
- * Unlike wiki_write_inbox (short-term, promote-later), this writes a curated
- * page DIRECTLY into pages/social/<topic>/, so Darius and Lukas can co-edit a
- * shared branch from their own Claude Code sessions over MCP.
+ * Writes DIRECTLY into pages/social/<group>/, the collaboratively-synced area
+ * (default group: darius-lukas). Any topic is allowed — organize freely with an
+ * optional subfolder. Each group under social/ is its own P2P sync namespace, so
+ * pages here reach that group's peers and nothing else.
  *
- * Safety: writes are hard-scoped to pages/social/. The resolved path must stay
- * inside that directory — any slug containing a slash or `..` is rejected — so
- * this tool can never touch the rest of Kai's wiki tree.
+ * Safety: writes are hard-scoped to pages/social/<group>/. The resolved path must
+ * stay inside it — a slug or folder containing `..` (or otherwise escaping) is
+ * rejected — so this tool can never touch the rest of the wiki.
  *
  * Collaboration: `author` is the current editor; a `contributors` set in the
- * frontmatter accumulates everyone who has touched the page. `created` is
- * preserved across edits, `updated` is stamped each write.
+ * frontmatter accumulates everyone who has touched the page. `created` and `tags`
+ * are preserved across edits.
  */
 
-const TOPICS = new Set(['laermzentrale', 'go-rechenkern'])
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const GROUP = process.env.WIKI_SHARED_GROUP || 'darius-lukas'
+const SEG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/ // one path segment: lowercase, digits, hyphens
 
 const yamlString = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 
@@ -30,43 +31,42 @@ function extractField(text, key) {
 function extractList(text, key) {
   const m = text.match(new RegExp(`^${key}:\\s*\\[(.*)\\]`, 'm'))
   if (!m) return []
-  return m[1]
-    .split(',')
-    .map((s) => s.trim().replace(/^["']|["']$/g, ''))
-    .filter(Boolean)
+  return m[1].split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
 }
 
 export async function wikiWritePage({
   wikiRoot,
-  topic,
   slug,
   title,
   content,
+  folder = '',
   tags = [],
   author = '@darius',
   summary = '',
 }) {
-  if (!TOPICS.has(topic)) {
-    throw new Error(`invalid topic "${topic}" — allowed: ${[...TOPICS].join(', ')}`)
-  }
-  if (typeof slug !== 'string' || !SLUG_RE.test(slug)) {
+  if (typeof slug !== 'string' || !SEG_RE.test(slug)) {
     throw new Error(`invalid slug "${slug}" — use lowercase letters, digits and hyphens only`)
+  }
+  const segments = String(folder || '').split('/').map((s) => s.trim()).filter(Boolean)
+  for (const seg of segments) {
+    if (!SEG_RE.test(seg)) {
+      throw new Error(`invalid folder segment "${seg}" — lowercase letters, digits, hyphens only`)
+    }
   }
   if (!title || !content) {
     throw new Error('title and content are required')
   }
 
-  const socialRoot = resolve(wikiRoot, 'pages', 'social')
-  const filePath = resolve(socialRoot, topic, `${slug}.md`)
-  // Hard scope guard: the resolved path must live under pages/social/.
-  if (filePath !== socialRoot && !filePath.startsWith(socialRoot + sep)) {
-    throw new Error('refusing to write outside pages/social/')
+  const groupRoot = resolve(wikiRoot, 'pages', 'social', GROUP)
+  const filePath = resolve(groupRoot, ...segments, `${slug}.md`)
+  // Hard scope guard: the resolved path must live under pages/social/<group>/.
+  if (filePath !== groupRoot && !filePath.startsWith(groupRoot + sep)) {
+    throw new Error(`refusing to write outside pages/social/${GROUP}/`)
   }
 
   const today = new Date().toISOString().slice(0, 10)
 
-  // Preserve created + tags + accumulate contributors across edits, so an
-  // edit that omits metadata never silently drops it from a shared page.
+  // Preserve created + tags + accumulate contributors across edits.
   let created = today
   let contributors = []
   let effectiveTags = tags
@@ -81,15 +81,13 @@ export async function wikiWritePage({
   }
   if (!contributors.includes(author)) contributors.push(author)
 
-  const tagsStr = effectiveTags.length
-    ? `[${effectiveTags.map((t) => `"${t}"`).join(', ')}]`
-    : '[]'
+  const tagsStr = effectiveTags.length ? `[${effectiveTags.map((t) => `"${t}"`).join(', ')}]` : '[]'
   const contribStr = `[${contributors.map((c) => `"${c}"`).join(', ')}]`
 
   const frontmatter = `---
 title: ${yamlString(title)}
 category: social
-topic: ${yamlString(topic)}
+group: ${yamlString(GROUP)}
 tags: ${tagsStr}
 contributors: ${contribStr}
 author: ${yamlString(author)}
@@ -101,13 +99,14 @@ updated: ${today}
   const summaryLine = summary ? `\n${summary}\n` : ''
   const body = `# ${title}\n${summaryLine}\n${content.trimEnd()}\n`
 
-  await mkdir(join(socialRoot, topic), { recursive: true })
+  const relDir = segments.length ? `${segments.join('/')}/` : ''
+  await mkdir(resolve(groupRoot, ...segments), { recursive: true })
   await writeFile(filePath, frontmatter + '\n' + body, 'utf8')
 
   return {
     content: [{
       type: 'text',
-      text: `Page written: pages/social/${topic}/${slug}.md (author ${author}, contributors: ${contributors.join(', ')})`,
+      text: `Page written: pages/social/${GROUP}/${relDir}${slug}.md (author ${author}, contributors: ${contributors.join(', ')})`,
     }],
   }
 }

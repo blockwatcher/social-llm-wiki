@@ -2,7 +2,9 @@
 // the Hetzner libp2p relay. Same launcher for the Pi and for Lukas — all
 // config via env.
 //
-//   WIKI_SOCIAL_ROOT  parent of the `social/` folder (wikiDir = <root>/social)
+//   WIKI_SOCIAL_ROOT  parent of the group folder (wikiDir = <root>/<namespace>)
+//   WIKI_NAMESPACE    the shared group = its own Yjs doc + GossipSub topic
+//                     (each group under social/ is isolated). Default: darius-lukas
 //   WIKI_STATE_DIR    where Yjs binary state + the node identity live
 //   WIKI_KEY_FILE     persisted Ed25519 identity (stable PeerID)
 //   WIKI_RELAY        relay multiaddr (reservation)
@@ -12,13 +14,14 @@ import { join } from 'node:path'
 
 const RELAY = process.env.WIKI_RELAY
   || '/ip4/46.225.213.61/tcp/4001/p2p/12D3KooWBsYoFG7J1xq6dEQTbZyN1qULncYXRirYgSEb12fYMaKL'
-const wikiRoot = process.env.WIKI_SOCIAL_ROOT || '/home/darius/nanoclaw/groups/main/memory/wiki/pages'
+const namespace = process.env.WIKI_NAMESPACE || 'darius-lukas'
+const wikiRoot = process.env.WIKI_SOCIAL_ROOT || '/home/darius/nanoclaw/groups/main/memory/wiki/pages/social'
 const stateDir = process.env.WIKI_STATE_DIR || '/home/darius/.local/state/wiki-social-sync'
 const keyFile = process.env.WIKI_KEY_FILE || join(stateDir, 'node-id.key')
 const peers = (process.env.WIKI_PEERS || '').split(',').map(s => s.trim()).filter(Boolean)
 
 const { node, stop } = await createWikiNode({
-  wikiRoot, namespace: 'social', relay: RELAY, peers, stateDir, keyFile,
+  wikiRoot, namespace, relay: RELAY, peers, stateDir, keyFile,
 })
 console.log('social-sync node up — PeerID:', node.peerId.toString())
 setTimeout(() => {
