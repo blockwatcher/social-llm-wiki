@@ -2,12 +2,28 @@ import { createLibp2p } from 'libp2p'
 import { tcp } from '@libp2p/tcp'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { noise } from '@chainsafe/libp2p-noise'
-import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { gossipsub } from '@libp2p/gossipsub'
 import { identify } from '@libp2p/identify'
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
 import * as Y from 'yjs'
-import { join } from 'node:path'
+import { generateKeyPair, privateKeyFromProtobuf, privateKeyToProtobuf } from '@libp2p/crypto/keys'
+import { join, dirname } from 'node:path'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { loadState, makeDebouncedSave } from './persist.js'
+
+// Load a persisted Ed25519 identity from disk, or generate and save one.
+// A stable PeerID is required for other peers to dial this node reliably
+// (a circuit multiaddr embeds the PeerID).
+async function loadOrCreateKey(keyFile) {
+  try {
+    return privateKeyFromProtobuf(await readFile(keyFile))
+  } catch {
+    const pk = await generateKeyPair('Ed25519')
+    await mkdir(dirname(keyFile), { recursive: true })
+    await writeFile(keyFile, privateKeyToProtobuf(pk), { mode: 0o600 })
+    return pk
+  }
+}
 import { createFileBridge } from './file-bridge.js'
 
 // GossipSub topic per namespace — isolates personal and shared namespaces
@@ -20,30 +36,10 @@ function topicFor(namespace) {
 // a joining peer misses all prior updates. This protocol closes that gap.
 const SYNC_PROTOCOL = '/wiki-sync/1.0.0'
 
-// Decode-level caps on a single incoming GossipSub RPC frame.
-//
-// SECURITY (CVE-2026-46679): @chainsafe/libp2p-gossipsub@14.x decodes every RPC
-// field with an *unbounded* default (`maxSubscriptions: Infinity`, and likewise
-// for messages / ihave / iwant / idontwant / control / peerInfos). An
-// unauthenticated peer can pack one 4 MB frame with ~349k unique-topic SUBSCRIBE
-// entries (~22x heap amplification) and crash the node's Node.js heap in seconds.
-// We accept remote CRDT updates with no authorization (see docs/sync-architecture.md
-// "Security Considerations"), so any reachable peer can mount this attack.
-//
-// The fix landed in the renamed package @libp2p/gossipsub@>=15.0.23, but that line
-// requires @libp2p/interface@^3 (a full libp2p 2.x -> 3.x stack migration). Since
-// 14.x already exposes the `decodeRpcLimits` option, we backport the upstream caps
-// by value — these are the exact finite defaults from @libp2p/gossipsub@16.0.3,
-// which removes the per-frame amplification that makes the DoS practical.
-const GOSSIPSUB_DECODE_LIMITS = {
-  maxSubscriptions: 5000,
-  maxMessages: 5000,
-  maxIhaveMessageIDs: 5000,
-  maxIwantMessageIDs: 5000,
-  maxControlMessages: 5000,
-  maxIdontwantMessageIDs: 512, // GossipsubIdontwantMaxMessages
-  maxPeerInfos: 16,            // GossipsubPrunePeers
-}
+// CVE-2026-46679 (GossipSub subscription-flood DoS) is fixed upstream: since
+// @libp2p/gossipsub@16.x the RPC decode limits (maxSubscriptions: 5000, …) are
+// finite by default, so the previous explicit decodeRpcLimits backport is no
+// longer needed.
 
 function mergeUint8Arrays(chunks) {
   const total = chunks.reduce((n, c) => n + c.length, 0)
@@ -77,19 +73,23 @@ export async function createWikiNode({
   port = 0,
   peers = [],
   relay = null,   // multiaddr string of a circuit relay server
+  stateDir = null, // override Yjs state dir; defaults to <wikiRoot>/.yjs
+  keyFile = null,  // path to a persisted identity; null = ephemeral random PeerID
 } = {}) {
   const topic = topicFor(namespace)
   const wikiDir = join(wikiRoot, namespace)
-  const stateDir = join(wikiRoot, '.yjs')
+  // Keep the binary Yjs state out of the wiki content tree when overridden —
+  // e.g. when wikiDir is a live wiki subfolder watched by other tooling.
+  const resolvedStateDir = stateDir ?? join(wikiRoot, '.yjs')
 
   // --- Yjs doc ---
   const doc = new Y.Doc()
   const pages = doc.getMap('pages')
 
   // Load persisted state before connecting to peers
-  await loadState(doc, stateDir, namespace)
+  await loadState(doc, resolvedStateDir, namespace)
 
-  const scheduleSave = makeDebouncedSave(doc, stateDir, namespace)
+  const scheduleSave = makeDebouncedSave(doc, resolvedStateDir, namespace)
 
   // --- libp2p node ---
   // Circuit relay transport is included so nodes behind NAT can connect
@@ -100,7 +100,10 @@ export async function createWikiNode({
   const listenAddrs = [`/ip4/0.0.0.0/tcp/${port}`]
   if (relay) listenAddrs.push('/p2p-circuit')
 
+  const privateKey = keyFile ? await loadOrCreateKey(keyFile) : undefined
+
   const node = await createLibp2p({
+    ...(privateKey ? { privateKey } : {}),
     addresses: { listen: listenAddrs },
     transports: [tcp(), circuitRelayTransport({ discoverRelays: relay ? 1 : 0 })],
     streamMuxers: [yamux()],
@@ -110,7 +113,6 @@ export async function createWikiNode({
       pubsub: gossipsub({
         emitSelf: false,
         allowPublishToZeroTopicPeers: true,
-        decodeRpcLimits: GOSSIPSUB_DECODE_LIMITS, // CVE-2026-46679 mitigation
       }),
     },
   })
@@ -133,10 +135,10 @@ export async function createWikiNode({
 
   // --- Sync protocol: send full state to newly connected peers ---
   // Registers an inbound handler so peers can request our state
-  node.handle(SYNC_PROTOCOL, async ({ stream }) => {
+  node.handle(SYNC_PROTOCOL, async (stream, connection) => {
     try {
       const chunks = []
-      for await (const chunk of stream.source) {
+      for await (const chunk of stream) {
         chunks.push(chunk instanceof Uint8Array ? chunk : chunk.subarray())
       }
       const state = mergeUint8Arrays(chunks)
@@ -157,7 +159,11 @@ export async function createWikiNode({
       try {
         const stream = await node.dialProtocol(peerId, SYNC_PROTOCOL)
         const state = Y.encodeStateAsUpdate(doc)
-        await stream.sink((async function* () { yield state })())
+        // libp2p 3.x MessageStream: send() is sync (false = buffer full), then close() flushes.
+        if (stream.send(state) === false) {
+          await stream.onDrain()
+        }
+        await stream.close()
       } catch {
         // Normal: other side may not have our protocol or beat us to it
       }
