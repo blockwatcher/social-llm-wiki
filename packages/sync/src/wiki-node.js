@@ -25,6 +25,7 @@ async function loadOrCreateKey(keyFile) {
   }
 }
 import { createFileBridge } from './file-bridge.js'
+import { createLinkPolicy } from './link-policy.js'
 
 // GossipSub topic per namespace — isolates personal and shared namespaces
 function topicFor(namespace) {
@@ -65,6 +66,12 @@ function mergeUint8Arrays(chunks) {
  * @param {string}   [opts.namespace]  - Namespace to sync (default: '@darius')
  * @param {number}   [opts.port]       - TCP listen port (default: 0 = random)
  * @param {string[]} [opts.peers]      - Multiaddrs to dial on startup
+ * @param {string}   [opts.pagesRoot]  - The wiki's whole `pages/` tree. Enables the
+ *                                       publish gate: a local page whose [[wikilinks]]
+ *                                       point outside the synced group is withheld from
+ *                                       peers, since the link would both dangle there
+ *                                       and disclose a private page's name. Omit to
+ *                                       publish unconditionally (previous behaviour).
  * @returns {Promise<{ node, doc, pages, multiaddr: string, stop: () => Promise<void> }>}
  */
 export async function createWikiNode({
@@ -75,6 +82,7 @@ export async function createWikiNode({
   relay = null,   // multiaddr string of a circuit relay server
   stateDir = null, // override Yjs state dir; defaults to <wikiRoot>/.yjs
   keyFile = null,  // path to a persisted identity; null = ephemeral random PeerID
+  pagesRoot = null, // enables the publish gate; see above
 } = {}) {
   const topic = topicFor(namespace)
   const wikiDir = join(wikiRoot, namespace)
@@ -171,7 +179,25 @@ export async function createWikiNode({
   })
 
   // --- File-bridge: Yjs ↔ filesystem ---
-  const bridge = await createFileBridge(doc, pages, wikiDir)
+  // The blocked-pages report goes to the state dir, not into wikiDir — anything written
+  // there would itself be published to the peers.
+  const blockedPath = join(resolvedStateDir, `blocked-${namespace.replace(/[^\w.-]/g, '_')}.json`)
+  const blocked = new Map()
+
+  const bridge = await createFileBridge(doc, pages, wikiDir, {
+    gate: pagesRoot ? createLinkPolicy({ pagesRoot, groupDir: wikiDir }) : undefined,
+    onBlocked: (key, reason) => {
+      console.error(`[sync:${namespace}] WITHHELD ${key}: ${reason}`)
+      blocked.set(key, { reason, at: new Date().toISOString() })
+      mkdir(resolvedStateDir, { recursive: true })
+        .then(() => writeFile(
+          blockedPath,
+          JSON.stringify(Object.fromEntries(blocked), null, 2),
+          'utf8',
+        ))
+        .catch((err) => console.error(`[sync:${namespace}] blocked-report write failed:`, err.message))
+    },
+  })
 
   // --- Start node and subscribe ---
   await node.start()

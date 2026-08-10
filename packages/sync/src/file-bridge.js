@@ -25,7 +25,7 @@ function bridgeTextToFile(key, text, wikiDir) {
 }
 
 // Load all existing Markdown files in wikiDir into the Yjs doc at startup
-async function loadFilesIntoDoc(wikiDir, doc, pages) {
+async function loadFilesIntoDoc(wikiDir, doc, pages, gate) {
   if (!existsSync(wikiDir)) return
   const walk = async (dir) => {
     const entries = await readdir(dir, { withFileTypes: true })
@@ -35,6 +35,9 @@ async function loadFilesIntoDoc(wikiDir, doc, pages) {
       if (!entry.name.endsWith('.md')) continue
       const key = relative(wikiDir, full)
       const content = await readFile(full, 'utf8')
+      // A page that was edited while the node was down must be gated here too —
+      // otherwise it would be published on the next restart.
+      if (await gate(key, content)) continue
       doc.transact(() => {
         if (!pages.has(key)) {
           const text = new Y.Text()
@@ -54,16 +57,42 @@ async function loadFilesIntoDoc(wikiDir, doc, pages) {
  * Yjs → files: whenever a page changes in Yjs (from remote sync), write to disk.
  * Files → Yjs: whenever a .md file changes on disk (edit server, manual edit), update Yjs.
  *
+ * Publication is one-way-gated: `gate` decides whether a LOCAL page may enter the doc
+ * (and thus reach peers). Pages arriving FROM peers are never gated — the concern is
+ * what leaves this machine, not what reaches it. A page refused by the gate keeps its
+ * local file untouched; if the page was already published, peers simply keep the last
+ * version that passed.
+ *
  * @param {Y.Doc} doc
  * @param {Y.Map} pages
  * @param {string} wikiDir  - namespace directory, e.g. wiki/@darius
+ * @param {object} [opts]
+ * @param {(key: string, content: string) => Promise<string|null>} [opts.gate]
+ *        Reason to withhold the page, or null to publish. Default: publish everything.
+ * @param {(key: string, reason: string) => void} [opts.onBlocked]
+ *        Called when the gate withholds a page (deduplicated per key+reason).
  * @returns {{ stop: () => void }}
  */
-export async function createFileBridge(doc, pages, wikiDir) {
+export async function createFileBridge(doc, pages, wikiDir, opts = {}) {
+  const gate = opts.gate ?? (() => null)
+  const onBlocked = opts.onBlocked ?? (() => {})
+  // The gate re-evaluates on every filesystem event, so without this a single withheld
+  // page would re-report on every save.
+  const reported = new Map()
+  const report = (key, reason) => {
+    if (reported.get(key) === reason) return
+    reported.set(key, reason)
+    onBlocked(key, reason)
+  }
+
   await mkdir(wikiDir, { recursive: true })
 
   // Load existing files into Yjs (idempotent — won't overwrite persisted state)
-  await loadFilesIntoDoc(wikiDir, doc, pages)
+  await loadFilesIntoDoc(wikiDir, doc, pages, async (key, content) => {
+    const reason = await gate(key, content)
+    if (reason) report(key, reason)
+    return reason
+  })
 
   // Attach observers to pages already in the doc (from persisted state)
   for (const [key, text] of pages.entries()) {
@@ -104,6 +133,13 @@ export async function createFileBridge(doc, pages, wikiDir) {
       // Skip if content already matches Yjs (we wrote this file)
       const existing = pages.get(filename)
       if (existing instanceof Y.Text && existing.toString() === content) return
+
+      const blocked = await gate(filename, content)
+      if (blocked) {
+        report(filename, blocked)
+        return
+      }
+      reported.delete(filename) // passed again — a later block should re-report
 
       doc.transact(() => {
         let text = pages.get(filename)
