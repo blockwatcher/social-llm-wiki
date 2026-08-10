@@ -80,6 +80,18 @@ Damit hast du in Claude Code diese Tools:
   kollidieren, deshalb lehnt das Tool einen schon vergebenen Slug ab und schlägt
   einen spezifischeren vor (`laermzentrale-uebersicht` statt `uebersicht`).
 
+`wiki_list` und `wiki_search` geben Pfade relativ zur Wiki-Wurzel zurück — du
+kannst sie unverändert an `wiki_read` weiterreichen.
+
+### Wikilinks nur innerhalb der Gruppe
+
+Eine geteilte Seite landet bei allen Peers der Gruppe. Ein `[[Wikilink]]` auf eine
+Seite außerhalb des Gruppenordners geht deshalb bei den anderen ins Leere und gibt
+zugleich den Seitennamen preis — `wiki_write_page` lehnt solche Links ab und nennt
+die betroffene Seite. Verweise auf private Seiten gehören als **Klartext** in den
+Text, nicht in doppelte Klammern. Zeigt ein Link auf eine Seite, die es noch gar
+nicht gibt, wird die Seite geschrieben und der Link nur als Hinweis gemeldet.
+
 `wiki_write_page` schreibt nach `~/wiki-social/pages/social/darius-lukas/[<folder>/]<slug>.md`
 — genau das Verzeichnis, das der Sync-Node beobachtet. Deine Änderung landet also
 automatisch beim Host (und umgekehrt). `contributors` sammelt beide Autoren.

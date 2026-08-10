@@ -1,5 +1,7 @@
 import { analyzeWiki } from '@social-llm-wiki/graph'
 
+import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
+
 /**
  * wiki_graph — Return the knowledge graph for a namespace
  *
@@ -7,6 +9,12 @@ import { analyzeWiki } from '@social-llm-wiki/graph'
  * Use wiki_gaps for the gap analysis and research prompts.
  */
 export async function wikiGraph({ wikiRoot, namespace = '' }) {
+  // analyzeWiki joins namespace onto the root itself, so containment is checked
+  // here at the boundary where model-supplied input enters.
+  if (!resolveInsideWiki(wikiRoot, namespace)) {
+    return outsideRootError(namespace)
+  }
+
   const result = await analyzeWiki(wikiRoot, namespace)
 
   if (result.empty) {

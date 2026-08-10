@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 
 import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
@@ -24,7 +24,9 @@ export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
     return { content: [{ type: 'text', text: `Namespace not found: ${namespace}` }] }
   }
 
-  const pages = await collectPages(base, base)
+  // Paths are reported relative to the wiki root, not to `base`, so that hits
+  // can be handed to wiki_read unchanged.
+  const pages = await collectPages(base, resolve(wikiRoot))
   const queryLower = query.toLowerCase()
   const results = []
 

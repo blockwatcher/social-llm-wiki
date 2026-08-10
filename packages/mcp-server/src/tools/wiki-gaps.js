@@ -1,5 +1,7 @@
 import { analyzeWiki } from '@social-llm-wiki/graph'
 
+import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
+
 /**
  * wiki_gaps — Gap analysis and research question generation
  *
@@ -8,6 +10,12 @@ import { analyzeWiki } from '@social-llm-wiki/graph'
  * Use this to find non-obvious connections and generate original insights.
  */
 export async function wikiGaps({ wikiRoot, namespace = '' }) {
+  // analyzeWiki joins namespace onto the root itself, so containment is checked
+  // here at the boundary where model-supplied input enters.
+  if (!resolveInsideWiki(wikiRoot, namespace)) {
+    return outsideRootError(namespace)
+  }
+
   const result = await analyzeWiki(wikiRoot, namespace)
 
   if (result.empty) {

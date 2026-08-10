@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 
 import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
@@ -20,7 +20,9 @@ export async function wikiList({ wikiRoot, namespace = '', subpath = '' }) {
     return { content: [{ type: 'text', text: `Namespace/path not found: ${namespace}/${subpath}` }] }
   }
 
-  const pages = await collectPages(base, base)
+  // Paths are reported relative to the wiki root, not to `base`, so that what
+  // this returns can be handed to wiki_read unchanged.
+  const pages = await collectPages(base, resolve(wikiRoot))
 
   if (pages.length === 0) {
     return { content: [{ type: 'text', text: `No pages found in ${namespace}/${subpath}` }] }
