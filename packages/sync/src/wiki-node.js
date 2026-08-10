@@ -186,6 +186,13 @@ export async function createWikiNode({
 
   const bridge = await createFileBridge(doc, pages, wikiDir, {
     gate: pagesRoot ? createLinkPolicy({ pagesRoot, groupDir: wikiDir }) : undefined,
+    onDeleted: (key) => {
+      console.log(`[sync:${namespace}] page removed, deletion propagated: ${key}`)
+      if (blocked.delete(key)) {
+        writeFile(blockedPath, JSON.stringify(Object.fromEntries(blocked), null, 2), 'utf8')
+          .catch(() => {})
+      }
+    },
     onBlocked: (key, reason) => {
       console.error(`[sync:${namespace}] WITHHELD ${key}: ${reason}`)
       blocked.set(key, { reason, at: new Date().toISOString() })
