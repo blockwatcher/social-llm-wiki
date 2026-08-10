@@ -32,12 +32,19 @@ export async function wikiWriteInbox({
 
   const tagsStr = tags.length > 0 ? `[${tags.map((t) => `"${t}"`).join(', ')}]` : '[]'
 
+  // YAML safety: any string starting with @ or containing : / # / etc must be quoted.
+  // Strings get double-quoted with embedded " escaped as \".
+  const yamlString = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  const safeAuthor = yamlString(namespace)
+  const safeTitle = yamlString(title || 'Untitled')
+  const safeChannel = yamlString(channel)
+
   const fileContent = `---
-channel: ${channel}
+channel: ${safeChannel}
 schema: text/note
-author: ${namespace}
+author: ${safeAuthor}
 ingested: ${now.toISOString()}
-title: ${title || 'Untitled'}
+title: ${safeTitle}
 tags: ${tagsStr}
 ttl: 30d
 promoted: false
