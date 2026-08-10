@@ -52,7 +52,8 @@ Backup).
 
 ## Wenn du mehr willst (optional, später)
 
-- **Web-Ansicht mit Graph & Suche:** Quartz über den Ordner legen.
+- **Web-Ansicht mit Graph & Suche:** Quartz über den Ordner legen — Schritt für
+  Schritt in [QUARTZ.md](./QUARTZ.md).
 - **Strukturierte Tools / Claude Desktop / Lücken-Analyse:** den MCP-Server aus
   diesem Repo mit `WIKI_ROOT=~/mein-wiki` einbinden.
 - **Selbst-kuratierende Pipeline:** Auto-Ingest + LLM-Review.

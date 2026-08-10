@@ -43,6 +43,7 @@ Website mit Graph-Ansicht und Volltextsuche — read-only, lokal. Ein kleiner
 Watcher baut bei jeder Änderung neu. Optional der **Edit-Server** aus diesem Repo
 (`packages/edit-server`), der einen „✎ Edit this page"-Button hinzufügt, damit du
 im Browser bearbeiten kannst. Immer noch kein Agent nötig.
+**Konkrete Schritt-für-Schritt-Installation:** [quickstart/QUARTZ.md](./quickstart/QUARTZ.md).
 
 ### Stufe 2 — + Claude Code mit Ordner-Zugriff  ← der einfachste „Agenten"-Weg
 Das ist der Weg, den du meinst: **du gibst Claude Code einfach Zugriff auf den
