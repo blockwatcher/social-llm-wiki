@@ -7,18 +7,18 @@ und *Wie*.
 ## Was das ist
 
 Ein gemeinsames Mini-Wiki für die Themen **Lärmzentrale** und **go-Rechenkern**,
-das du und Darius zusammen pflegt. Es gibt keinen zentralen Server, kein
+das du und dein Partner zusammen pflegt. Es gibt keinen zentralen Server, kein
 Cloud-Konto und keinen Login: Jeder von euch hat eine **lokale Kopie** der Seiten,
 und Änderungen gleichen sich automatisch über eine verschlüsselte
 Peer-to-Peer-Verbindung ab.
 
-Wichtig: Geteilt wird **nur** der Bereich `pages/social/`. Darius' übrige,
-private Wiki bleibt komplett bei ihm — sie ist gar nicht Teil der Synchronisation.
+Wichtig: Geteilt wird **nur** der Bereich `pages/social/`. Die private Wiki des
+Partners bleibt komplett bei ihm — sie ist gar nicht Teil der Synchronisation.
 
 ## Wie es funktioniert (in einem Bild)
 
 ```
-   Dein Rechner                 Hetzner-Relay              Darius' Raspberry Pi
+   Dein Rechner                 Hetzner-Relay              Partner-Raspberry Pi
  ┌───────────────┐            (nur Treffpunkt,           ┌────────────────────┐
  │ ~/wiki-social │  libp2p     kennt keine Inhalte)      │ pages/social/ der   │
  │  pages/social │◄──────────►  46.225.213.61:4001  ◄───►│ Live-Wiki (Quartz)  │
@@ -31,8 +31,8 @@ private Wiki bleibt komplett bei ihm — sie ist gar nicht Teil der Synchronisat
 
 - **Sync-Node**: Ein kleines Node-Programm, das auf deinem Rechner läuft
   (`social-sync-node.mjs`). Es hält deine lokale Kopie von `pages/social/`
-  aktuell. Solange es läuft, siehst du Darius' Änderungen und er deine.
-- **Relay** (auf Darius' Hetzner-Server): Nur der *Treffpunkt*, über den sich
+  aktuell. Solange es läuft, siehst du die Änderungen des Partners und er deine.
+- **Relay** (auf dem Hetzner-Server des Partners): Nur der *Treffpunkt*, über den sich
   eure beiden Rechner finden (beide sitzen hinter einem Heim-Router/NAT). Der
   Relay leitet den verschlüsselten Verkehr weiter, kann die Inhalte aber nicht
   lesen.
@@ -55,7 +55,7 @@ nimm, was dir am liebsten ist:
    `~/wiki-social/pages/social/<thema>/` anlegen oder ändern. Der Sync-Node merkt
    es und verteilt es.
 
-3. **(Bei Darius) über die Quartz-Weboberfläche** — er kann Seiten auch im Browser
+3. **(Auf der Host-Seite) über die Quartz-Weboberfläche** — dort kann man Seiten auch im Browser
    über den „✎ Edit this page"-Button bearbeiten; das synct genauso zu dir.
 
 Jede Änderung wird mit `author` festgehalten, und `contributors` sammelt alle,
@@ -67,9 +67,9 @@ die eine Seite angefasst haben.
    Seiten und bleibt im Hintergrund offen.
 2. In Claude Code arbeiten: lesen, recherchieren, `wiki_write_page` für neue/geänderte
    Seiten.
-3. Fertig — deine Änderungen sind bei Darius, seine bei dir.
+3. Fertig — deine Änderungen sind beim Partner, seine bei dir.
 
-Darius sieht alles zusätzlich hübsch gerendert unter `http://<sein-Pi>:8080`
+Der Host sieht alles zusätzlich hübsch gerendert unter `http://<host-pi>:8080`
 (Quartz). Für dich reicht die lokale Markdown-Kopie + Claude Code.
 
 ## Gut zu wissen / Grenzen
@@ -89,5 +89,5 @@ Darius sieht alles zusätzlich hübsch gerendert unter `http://<sein-Pi>:8080`
   (DID/UCAN) ist geplant, aber noch nicht aktiv.
 
 ## Fragen?
-Frag Darius — oder in Claude Code den Agenten; er kennt das Wiki über die
+Frag deinen Partner — oder in Claude Code den Agenten; er kennt das Wiki über die
 `wiki_*`-Tools.

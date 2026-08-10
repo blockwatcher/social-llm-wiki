@@ -1,10 +1,10 @@
 # Eigene private LLM-Wiki — Überblick für Lukas
 
-Du willst so eine persönliche Wissensbasis wie Darius sie hat. Die gute Nachricht:
+Du willst so eine persönliche Wissensbasis wie dein Partner sie hat. Die gute Nachricht:
 im Kern ist das **ein Ordner mit Markdown-Dateien** plus ein paar Konventionen.
 Alles andere — Web-Rendering, Agenten-Tools, Auto-Ingest — ist optionales Beiwerk,
 das du dazuschalten kannst, wenn du es willst. Nicht verwechseln mit der
-*geteilten* Social-Branch (die syncst du mit Darius); deine private Wiki läuft
+*geteilten* Social-Branch (die syncst du mit deinem Partner); deine private Wiki läuft
 eigenständig, nur bei dir.
 
 ## Der Kern: ein Ordner + eine Konvention
@@ -53,7 +53,7 @@ hinzu). Claude liest/schreibt die `.md`-Dateien mit seinen normalen Werkzeugen
 
 Der einzige Trick: leg eine `CLAUDE.md` in den Ordner, die dem Agenten die
 Konventionen erklärt (Seitenformat, Kategorien, „bei neuer Seite `wiki-index.md`
-und `log.md` pflegen"). Genau so funktioniert Darius' Setup — sein Agent „Kai"
+und `log.md` pflegen"). Genau so funktioniert ein solches Setup — der Agent
 liest die `SCHEMA.md` und arbeitet direkt auf den Dateien. Ergebnis: du sagst
 „fass das zu Thema X als Wiki-Seite zusammen", und Claude legt sie regelkonform an.
 
@@ -75,7 +75,7 @@ Einrichtung (stdio, in deiner Claude-Code-`.mcp.json`):
 ```
 
 ### Stufe 4 — + selbst-kuratierende Pipeline (Karpathy-Muster)
-Die Ausbaustufe, die Darius fährt: ein **Vier-Schichten-Gedächtnis**
+Die volle Ausbaustufe: ein **Vier-Schichten-Gedächtnis**
 (`raw/ → inbox/ → review/ → pages/`, siehe `docs/memory-architecture.md`).
 - **Auto-Ingest-Kanäle** (`packages/channels`) werfen Rohmaterial in `inbox/` —
   z. B. ein Drop-Ordner (Datei rein → wird verarbeitet), später Mail/RSS/…
@@ -89,7 +89,7 @@ ordnet. Alles optional und schrittweise nachrüstbar.
 ## Empfohlener Einstieg
 
 1. **Stufe 0+2 zuerst:** Ordner anlegen (kopier dir `SCHEMA.md` als Vorlage aus
-   diesem Repo bzw. von Darius), eine `CLAUDE.md` mit den Konventionen rein, und
+   diesem Repo), eine `CLAUDE.md` mit den Konventionen rein, und
    Claude Code im Ordner starten. Damit hast du sofort eine agentengestützte Wiki.
 2. **Dann Quartz (Stufe 1)** dazunehmen, wenn du eine schöne Browse-/Graph-Ansicht
    willst.
@@ -107,5 +107,5 @@ ordnet. Alles optional und schrittweise nachrüstbar.
   alle Teile.
 
 Diese private Wiki ist unabhängig von der geteilten Social-Branch. Wenn du später
-auch mal einen Bereich davon mit jemandem teilen willst, geht das genauso wie bei
-Darius (P2P-Sync eines Unterordners) — aber das ist ein späterer Schritt.
+auch mal einen Bereich davon mit jemandem teilen willst, geht das genauso wie im
+geteilten Setup (P2P-Sync eines Unterordners) — aber das ist ein späterer Schritt.

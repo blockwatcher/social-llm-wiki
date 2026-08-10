@@ -2,7 +2,7 @@
 
 Rendert deinen Wiki-Ordner als verlinkte Website mit Graph-Ansicht, Volltextsuche
 und Backlinks — read-only, lokal, mit Live-Reload beim Speichern. Das ist derselbe
-Renderer, den Darius nutzt.
+Renderer, den auch das geteilte Setup nutzt.
 
 Voraussetzung: die Wiki liegt schon (siehe [SETUP.md](./SETUP.md)), Node ≥ 22, git.
 
@@ -54,7 +54,7 @@ ignorePatterns: ["private", "templates", ".obsidian", "CLAUDE.md", "_sources/**"
 `npx quartz build --serve` läuft nur, solange das Terminal offen ist. Für „immer
 an" gibt es zwei übliche Wege:
 - **systemd-User-Dienst**, der `npx quartz build --serve` in `~/quartz` startet
-  (analog zu den Diensten auf Darius' Pi).
+  (analog zu den Diensten auf dem Host-Pi).
 - Oder nur bei Bedarf starten — für eine persönliche Wiki völlig ausreichend.
 
 ## Zusammenspiel mit dem Bearbeiten
