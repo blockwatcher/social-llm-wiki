@@ -14,8 +14,11 @@ export async function wikiWriteInbox({
   channel = 'notes',
   title = '',
   tags = [],
-  namespace = '@darius',
+  namespace,
 }) {
+  if (!namespace) {
+    throw new Error('namespace (author) is required — the caller supplies WIKI_AUTHOR')
+  }
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10)
   const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '-')

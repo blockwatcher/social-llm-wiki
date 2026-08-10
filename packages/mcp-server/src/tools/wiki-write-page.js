@@ -1,5 +1,5 @@
-import { writeFile, readFile, mkdir } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import { writeFile, readFile, mkdir, readdir } from 'node:fs/promises'
+import { join, relative, resolve, sep } from 'node:path'
 
 /**
  * wiki_write_page — Create or update a page in a shared wiki group.
@@ -34,6 +34,31 @@ function extractList(text, key) {
   return m[1].split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
 }
 
+/**
+ * wiki-index.md and wiki-lint key pages by filename stem, not by path, so two
+ * pages named `uebersicht.md` in different folders collide and one silently
+ * drops out of the index. New pages are checked against the whole `pages/` tree;
+ * updates are fine by construction (the stem is already theirs).
+ */
+async function findStemCollision(pagesRoot, slug, selfPath) {
+  const stack = [pagesRoot]
+  while (stack.length > 0) {
+    const dir = stack.pop()
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      continue // pages/ (or a subfolder) may not exist yet
+    }
+    for (const entry of entries) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) stack.push(full)
+      else if (entry.name === `${slug}.md` && full !== selfPath) return full
+    }
+  }
+  return null
+}
+
 export async function wikiWritePage({
   wikiRoot,
   slug,
@@ -41,9 +66,12 @@ export async function wikiWritePage({
   content,
   folder = '',
   tags = [],
-  author = '@darius',
+  author,
   summary = '',
 }) {
+  if (!author) {
+    throw new Error('author is required — the caller supplies WIKI_AUTHOR')
+  }
   if (typeof slug !== 'string' || !SEG_RE.test(slug)) {
     throw new Error(`invalid slug "${slug}" — use lowercase letters, digits and hyphens only`)
   }
@@ -70,6 +98,7 @@ export async function wikiWritePage({
   let created = today
   let contributors = []
   let effectiveTags = tags
+  let isNew = false
   try {
     const existing = await readFile(filePath, 'utf8')
     const fm = existing.slice(0, existing.indexOf('\n---', 4) + 4)
@@ -77,9 +106,21 @@ export async function wikiWritePage({
     contributors = extractList(fm, 'contributors')
     if (!tags || tags.length === 0) effectiveTags = extractList(fm, 'tags')
   } catch {
-    // new page
+    isNew = true
   }
   if (!contributors.includes(author)) contributors.push(author)
+
+  if (isNew) {
+    const collision = await findStemCollision(resolve(wikiRoot, 'pages'), slug, filePath)
+    if (collision) {
+      const prefix = segments[segments.length - 1] ?? GROUP
+      throw new Error(
+        `slug "${slug}" is already taken by ${relative(wikiRoot, collision)} — the wiki index ` +
+        `keys pages by filename, so the two would collide and one would drop out. ` +
+        `Use a more specific slug, e.g. "${prefix}-${slug}".`,
+      )
+    }
+  }
 
   const tagsStr = effectiveTags.length ? `[${effectiveTags.map((t) => `"${t}"`).join(', ')}]` : '[]'
   const contribStr = `[${contributors.map((c) => `"${c}"`).join(', ')}]`

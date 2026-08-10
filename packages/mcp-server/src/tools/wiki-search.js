@@ -2,6 +2,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { existsSync } from 'node:fs'
 
+import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
+
 const EXCERPT_RADIUS = 120  // Zeichen vor/nach dem Treffer
 const MAX_RESULTS = 10
 
@@ -12,7 +14,11 @@ const MAX_RESULTS = 10
  * to a namespace) and returns matching pages with context excerpts.
  */
 export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
-  const base = join(wikiRoot, namespace)
+  const base = resolveInsideWiki(wikiRoot, namespace)
+
+  if (!base) {
+    return outsideRootError(namespace)
+  }
 
   if (!existsSync(base)) {
     return { content: [{ type: 'text', text: `Namespace not found: ${namespace}` }] }

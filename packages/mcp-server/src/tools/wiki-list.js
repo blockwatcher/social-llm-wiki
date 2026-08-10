@@ -2,13 +2,19 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { existsSync } from 'node:fs'
 
+import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
+
 /**
  * wiki_list — List all pages in a namespace
  *
  * Returns a file tree with the title of each page.
  */
 export async function wikiList({ wikiRoot, namespace = '', subpath = '' }) {
-  const base = join(wikiRoot, namespace, subpath)
+  const base = resolveInsideWiki(wikiRoot, namespace, subpath)
+
+  if (!base) {
+    return outsideRootError(`${namespace}/${subpath}`)
+  }
 
   if (!existsSync(base)) {
     return { content: [{ type: 'text', text: `Namespace/path not found: ${namespace}/${subpath}` }] }

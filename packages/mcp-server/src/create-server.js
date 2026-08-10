@@ -21,6 +21,13 @@ export const WIKI_ROOT = resolve(
   process.env.WIKI_ROOT ?? '/home/darius/social-llm-wiki/wiki',
 )
 
+/**
+ * Who this server instance writes as. The wiki is co-edited — each peer runs
+ * its own MCP server against its own copy, so the identity belongs to the
+ * deployment, not to the model's guess at call time.
+ */
+export const WIKI_AUTHOR = process.env.WIKI_AUTHOR ?? '@darius'
+
 export function createWikiServer() {
   const server = new McpServer({
     name: 'social-llm-wiki',
@@ -101,11 +108,15 @@ export function createWikiServer() {
         'Tags as an array, e.g. ["project", "libp2p"].',
       ),
       namespace: z.string().optional().describe(
-        'Author namespace, e.g. "@darius". Default: "@darius".',
+        `Author namespace, e.g. "@darius". Omit unless the note is written on someone ` +
+        `else's behalf — this server writes as ${WIKI_AUTHOR}.`,
       ),
     },
     async ({ content, title, channel, tags, namespace }) =>
-      wikiWriteInbox({ wikiRoot: WIKI_ROOT, content, title, channel, tags, namespace }),
+      wikiWriteInbox({
+        wikiRoot: WIKI_ROOT, content, title, channel, tags,
+        namespace: namespace ?? WIKI_AUTHOR,
+      }),
   )
 
   // ─── Tool: wiki_write_page ────────────────────────────────────────────────
@@ -130,15 +141,19 @@ export function createWikiServer() {
         'Optional subfolder within the group to organize by topic, e.g. "laermzentrale" or "go-rechenkern" or "notizen". Nested paths like "a/b" allowed. Omit for a top-level page.',
       ),
       tags: z.array(z.string()).optional().describe('Tags, e.g. ["tifl", "messsystem"].'),
-      author: z.string().describe(
-        'Who is editing, e.g. "@darius" or "@lukas". Recorded as last editor and added to the contributors list.',
+      author: z.string().optional().describe(
+        `Who is editing. Omit unless editing on someone else's behalf — this server ` +
+        `writes as ${WIKI_AUTHOR}. Recorded as last editor and added to the contributors list.`,
       ),
       summary: z.string().optional().describe(
         'Optional one-sentence summary rendered under the title.',
       ),
     },
     async ({ slug, title, content, folder, tags, author, summary }) =>
-      wikiWritePage({ wikiRoot: WIKI_ROOT, slug, title, content, folder, tags, author, summary }),
+      wikiWritePage({
+        wikiRoot: WIKI_ROOT, slug, title, content, folder, tags, summary,
+        author: author ?? WIKI_AUTHOR,
+      }),
   )
 
   // ─── Tool: wiki_graph ─────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
 import { existsSync } from 'node:fs'
+
+import { resolveInsideWiki, outsideRootError } from '../safe-path.js'
 
 /**
  * wiki_read — Read a single wiki page
@@ -9,11 +10,10 @@ import { existsSync } from 'node:fs'
  * Returns the full Markdown content.
  */
 export async function wikiRead({ wikiRoot, path: pagePath }) {
-  const fullPath = resolve(join(wikiRoot, pagePath))
+  const fullPath = resolveInsideWiki(wikiRoot, pagePath)
 
-  // Path traversal guard
-  if (!fullPath.startsWith(resolve(wikiRoot))) {
-    return { content: [{ type: 'text', text: 'Error: path is outside wiki root.' }], isError: true }
+  if (!fullPath) {
+    return outsideRootError(pagePath)
   }
 
   if (!existsSync(fullPath)) {

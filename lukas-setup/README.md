@@ -55,18 +55,30 @@ Trag den Wiki-MCP in deine Claude-Code-`.mcp.json` ein (Pfade an dein System anp
     "wiki": {
       "command": "node",
       "args": ["/ABSOLUTER/PFAD/social-llm-wiki/packages/mcp-server/src/index.js"],
-      "env": { "WIKI_ROOT": "/home/lukas/wiki-social" }
+      "env": {
+        "WIKI_ROOT": "/home/lukas/wiki-social",
+        "WIKI_AUTHOR": "@lukas"
+      }
     }
   }
 }
 ```
 
+`WIKI_AUTHOR` ist wichtig: damit werden deine Änderungen als `@lukas` signiert,
+ohne dass du (oder das Modell) den Autor bei jedem Aufruf mitgeben musst.
+
 Damit hast du in Claude Code diese Tools:
 - `wiki_read` / `wiki_search` / `wiki_list` — Seiten lesen/suchen
-- **`wiki_write_page`** — Seite im geteilten Bereich anlegen/ändern. Immer mit
-  `author: "@lukas"`. Parameter: `slug`, `title`, `content` (Markdown-Body ohne
-  Frontmatter), optional `folder` (Unterordner zum Sortieren, z. B. `laermzentrale`,
-  `go-rechenkern` oder ein neues Thema wie `notizen`), optional `tags`.
+- **`wiki_write_page`** — Seite im geteilten Bereich anlegen/ändern. Parameter:
+  `slug`, `title`, `content` (Markdown-Body ohne Frontmatter), optional `folder`
+  (Unterordner zum Sortieren, z. B. `laermzentrale`, `go-rechenkern` oder ein neues
+  Thema wie `notizen`), optional `tags`. `author` brauchst du dank `WIKI_AUTHOR`
+  nur, wenn du ausnahmsweise für jemand anderen schreibst.
+
+  Der `slug` muss **wiki-weit eindeutig** sein — der Index adressiert Seiten über
+  den Dateinamen, nicht über den Pfad. Zwei `uebersicht.md` in verschiedenen Ordnern
+  kollidieren, deshalb lehnt das Tool einen schon vergebenen Slug ab und schlägt
+  einen spezifischeren vor (`laermzentrale-uebersicht` statt `uebersicht`).
 
 `wiki_write_page` schreibt nach `~/wiki-social/pages/social/darius-lukas/[<folder>/]<slug>.md`
 — genau das Verzeichnis, das der Sync-Node beobachtet. Deine Änderung landet also
