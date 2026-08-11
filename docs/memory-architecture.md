@@ -1,234 +1,171 @@
 # Memory Architecture
 
-How the Social LLM Wiki acts as shared memory across humans, groups, and LLM agents.
+How the wiki works as the persistent memory of an LLM agent — what gets kept, what
+fades, and who decides.
+
+**Stand: 2026-08-11.** For the system as a whole see [konzept.md](konzept.md); for the
+folder layout and conventions, [wiki-structure.md](wiki-structure.md).
 
 ---
 
 ## Core Idea
 
-The wiki is not just a knowledge base — it is the persistent memory layer for all agents and humans
-in the network. Every system that reads or writes knowledge (Claude Code, nanoclaw, clowbot, ...)
-does so through a common interface: local files, synchronized via libp2p.
+The wiki is not a knowledge base the agent occasionally consults — it is where the
+agent's long-term memory lives. Everything that should outlast a conversation goes
+there, as plain Markdown on disk. No central API, no shared database: files, plus P2P
+sync for the parts that are shared.
 
-```
-Claude Code (CLI)     reads  CLAUDE.md + wiki pages (context injection)
-nanoclaw / Agent1        reads + writes wiki/ (personal memory)
-clowbot / Agent2  reads + writes wiki/ (via libp2p sync)
-other future systems  same interface — files + libp2p
-```
-
-No central API. No shared database. Just files and sync.
+The agent (Kai, running in NanoClaw) has the wiki mounted and reads and writes it
+directly. It has **no MCP access** — the MCP server exists for the *other* clients
+(Claude Code sessions on other machines, and the collaborator's setup).
 
 ---
 
-## Memory Layers
-
-Inspired by human cognitive memory models.
+## Layers
 
 ```
-raw/            Sensory buffer      — original sources, permanent, LLM never reads directly
-inbox/          Short-term memory   — normalized, auto-ingested, time-limited (30d TTL)
-review/         Working memory      — LLM proposals, awaiting user decision
-wiki/           Long-term memory    — curated, linked, permanent
+_sources/    what was actually read     — immutable after ingest, permanent
+inbox/       short-term memory          — captured, not yet curated
+pages/       long-term memory           — curated, linked, permanent
 ```
 
-### Sensory Buffer: `raw/`
+### `_sources/` — what was read
 
-- Stores original, unprocessed sources exactly as received
-- **Never read directly by LLM** — only the normalized `inbox/` entry is used
-- Permanent storage for text and geo sources; media stored as hash references only
-- Enables re-processing with future (better) LLM models
-- Provides audit trail: what did Agent1 actually read?
-- Enables recovery from inconsistencies in `wiki/`
+The raw material behind a page: an article, a conversation excerpt, a file. Written
+once at ingest and never edited afterwards, named `YYYY-MM-DD-<slug>.md` with a
+frontmatter block recording where it came from.
 
-```
-raw/
-  text/           emails, notes, web clips, feeds, transcripts  → permanent
-  geo/            GPX / FIT tracks                              → permanent
-  media/          photos, audio                                 → hash reference only
-    2026-04-12-zugspitze.ref   ← contains path + SHA256, not the blob itself
-```
+Its purpose is not storage but **audit**: a page can claim anything, and `_sources/`
+is how you check what it was actually built from. It also makes reprocessing possible
+when a better model comes along. Currently around 200 files.
 
-**Storage rationale:** Text and geo sources stay small over years (a year of emails ≈ a few MB).
-Media blobs are kept in an external store (Nextcloud, local drive) referenced by an immutable hash.
-For Phase 1 on RPi 5: store everything inline — migrate media externally only when storage pressure is real.
+The weekly lint flags source files no page references, and pages referencing sources
+that do not exist.
 
-### Short-Term Memory: `inbox/`
+### `inbox/` — captured, not yet curated
 
-- Auto-ingested from all channels (email, Matrix, GPS, feeds, ...)
-- Minimal processing: structure only, no summarization
-- Each entry: frontmatter with metadata + raw content
-- **TTL: 30 days** — entries are deleted automatically regardless of promotion
-- Nothing is lost: what matters gets promoted, the rest fades
+Notes that arrived but have not been folded into a page. Each entry carries
+frontmatter with its channel, author, ingest timestamp, and `promoted: false`.
 
 ```
 inbox/
-  emails/
-    2026-04-13-soenke-libp2p-frage.md
-    2026-04-13-newsletter-rustlang.md
-  matrix/
-    2026-04-13-kai-notiz.md
-  geo/
-    2026-04-12-zugspitze-track.md
-  feeds/
-    2026-04-13-hackernews-crdt.md
-  files/
-    2026-04-10-meeting-notes.md
+  notes/       free notes, typically from external Claude Code sessions
+  projekte/    project notes
+  sessions/    session captures
+  lint/        the weekly lint reports
 ```
 
-### Staging: `review/`
+Entries declare `ttl: 30d`. **Nothing enforces it** — the oldest entry currently in
+the inbox is three months old. Treat the field as documentation of intent, not as a
+mechanism: the inbox grows until something is promoted or deleted by hand.
 
-- Populated periodically by the LLM (Agent1 / Agent2)
-- LLM reads inbox, groups by topic, drafts candidate wiki pages
-- User receives a notification (e.g. via Matrix):
-  > *"4 new candidates this week: Zugspitze hike, Meeting with Sönke,
-  > libp2p article, Pasta recipe. What should go into the wiki?"*
-- User approves / rejects / edits each candidate
-- Approved candidates are moved to `wiki/`, rejected ones are discarded
+Promotion is not a separate directory. The agent folds a worthwhile entry into the
+matching page under `pages/`, copies the raw content to `_sources/`, and sets
+`promoted: true` on the inbox file rather than deleting it, so the record of what was
+processed survives.
 
-```
-review/
-  candidates/
-    2026-04-13-zugspitze-hike.md      ← drafted by Agent1, awaiting approval
-    2026-04-13-libp2p-notes.md
-```
+### `pages/` — long-term memory
 
-### Long-Term Memory: `wiki/`
-
-- Fully curated, summarized, interlinked
-- Written only after user approval (or explicit bot action in shared namespaces)
-- Organized by namespace (see below)
-- Permanent — no TTL
+Curated, interlinked, permanent. This is what `wiki query` searches, what Quartz
+renders, and what the graph analysis runs on.
 
 ---
 
-## Memory Flow
+## Flow
 
 ```
-External Source
+external source
       │
       ▼
-  Channel               (email-imap, matrix-watch, gps-track, ...)
+  inbox/          normalized Markdown + frontmatter, promoted: false
       │
-      ├──► raw/         original blob stored permanently (text/geo)
-      │                 or hash reference written (media)
+      │  agent curates — on demand, or prompted by a lint drop
+      ▼
+  _sources/       the raw material, kept verbatim
       │
       ▼
-  inbox/                normalized Markdown + frontmatter, 30d TTL
-      │
-      │  periodic trigger (daily / on demand)
-      ▼
-  LLM Review            Agent1 reads inbox, groups topics,
-      │                 drafts candidate pages in review/
+  pages/          curated page, linked into the graph
       │
       ▼
-  User Supervision      notification via Matrix or CLI
-      │                 approve / reject / edit
-      │
-      ▼
-  wiki/                 curated, linked, permanent
+  wiki-index.md + log.md updated
 ```
 
----
+There is **no staging or approval step**. An earlier design had a `review/` layer where
+the agent drafted candidates and the user approved each one; it was never built. In
+practice the agent writes directly and the weekly lint is the review — after the fact,
+over the whole wiki, rather than per page.
 
-## Auto-Ingest Channels
-
-Each channel ingests from a source into `inbox/` with minimal processing.
-Heavy curation is deferred to the LLM review step.
-
-| Channel         | Source                  | inbox/ path                        |
-|-----------------|-------------------------|------------------------------------|
-| `email-imap`    | IMAP mailbox            | `emails/YYYY-MM-DD-subject.md`     |
-| `matrix-watch`  | Matrix rooms            | `matrix/YYYY-MM-DD-room.md`        |
-| `rss-feed`      | RSS / Atom feeds        | `feeds/YYYY-MM-DD-title.md`        |
-| `file-watch`    | Watched folder (drop)   | `files/YYYY-MM-DD-name.md`         |
-| `calendar-ical` | iCal / CalDAV           | `events/YYYY-MM-DD-event.md`       |
-| `geo-track`     | Garmin / phone GPS      | `geo/YYYY-MM-DD-track.md`          |
-| `voice-memo`    | Audio → transcription   | `voice/YYYY-MM-DD-memo.md`         |
-| `web-clip`      | URL / browser extension | `clips/YYYY-MM-DD-title.md`        |
-
-All entries share a common frontmatter schema:
-
-```yaml
----
-channel: email-imap
-schema: text/email
-author: did:key:z...
-namespace: "@darius"
-ingested: 2026-04-13T08:14:00Z
-tags: []
-ttl: 30d
-promoted: false
----
-```
-
-### Email Auto-Ingest
-
-IMAP polling with configurable filters:
-- Filter by sender, subject keywords, labels/folders
-- Body + subject → Markdown
-- Attachments stored as references (not embedded)
-- Newsletters and automated mail can be filtered out or given lower priority
+That trade is deliberate: per-page approval is a queue that grows faster than anyone
+drains it. It does mean the agent can write something wrong into long-term memory, and
+that the lint drop is worth actually reading.
 
 ---
 
-## Integration with Existing Systems
+## How Material Arrives
 
-### Claude Code (CLI)
+| Route | What it is |
+|---|---|
+| Conversation | The agent ingests a fact worth keeping from a chat |
+| External Claude Code sessions | Write to `inbox/` over the MCP server |
+| Email | Reaches the agent as a file; ingested if relevant |
+| Web research | Fetched, summarized, ingested with the URL as source |
 
-Claude Code reads `CLAUDE.md` as project context. This can be extended to
-automatically inject relevant wiki pages:
+The MCP route is the one with a trap: an MCP server started without `WIKI_ROOT`
+defaults to this repo's `wiki/` directory, which nothing else reads. Months of notes
+once went there unnoticed. Set `WIKI_ROOT`, and set `WIKI_AUTHOR` while you are at it —
+otherwise entries are signed as somebody else.
 
-- A pre-session hook reads `wiki/@darius/` and injects a summary
-- Or: a `wiki context <topic>` command pulls specific pages into context
-- The existing Claude Code memory system (`~/.claude/projects/.../memory/`)
-  can be backed by the wiki — memories written there sync into `wiki/@darius/`
-
-### nanoclaw / Agent1
-
-nanoclaw already has `memory/wiki/` as a local Quartz wiki — this is the PoC.
-Next steps:
-- Agent1 actively writes to `wiki/` (not just reads)
-- Agent1 runs the LLM review step periodically
-- Agent1 sends review notifications via Matrix
-
-### clowbot / Agent2
-
-Same architecture as Agent1, but in Sönke's namespace.
-Shared namespaces (`groups/`) are synced between both nodes via libp2p GossipSub.
-Coordination between Agent1 and Agent2 happens via A2A protocol.
+Large documents — papers, long PDFs — are deliberately **not** ingested wholesale.
+They inflate pages and context to no benefit; a summary plus a link is the rule, with
+the full text staying outside.
 
 ---
 
-## Namespace Model
+## Curation Loop
 
-```
-wiki/
-  @darius/          Personal long-term memory (Darius + Agent1)
-    reisen/
-    notizen/
-    projekte/
-  @soenke/          Personal long-term memory (Sönke + Agent2)
-    ...
-  groups/
-    hiking/         Shared — both can read and write
-    projekte/       Shared — collaborative projects
-    ...
+Two operations, after the Karpathy pattern:
 
-raw/                Sensory buffer — personal only, never synced, permanent
-inbox/              Short-term — personal only, never synced to peers
-review/             Staging — personal only, user-supervised
-```
+- **ingest** — raw material becomes a new page, or a dated section appended to an
+  existing one. The agent decides which; pages are cumulative, never overwritten.
+- **maintain** — the weekly lint (Sundays 09:00) reports broken links, filename
+  collisions, index drift, stale pages, and consolidation candidates. The agent reads
+  the drop and proposes concrete fixes rather than a general tidy-up.
 
-`raw/`, `inbox/`, and `review/` are **never synced** — they are strictly personal.
-Only promoted content in `wiki/` participates in P2P sync.
+`wiki query "<topic>"` is the read path: consult the index, grep the pages, summarize.
+The agent is instructed to run it before answering "I don't know" about anything not
+already in the conversation — the failure mode being an agent that has the fact on disk
+and does not look.
 
 ---
 
-## Open Questions
+## What Is Shared
 
-- **Review trigger**: periodic (daily cron) vs. event-driven (inbox reaches N entries)?
-- **Notification channel**: Matrix message for review requests, or a small local web UI?
-- **Email filter rules**: where are they configured — per-user config file or via bot conversation?
-- **Shared inbox**: should groups have a shared inbox, or do individuals promote to shared namespaces?
-- **Voice memos**: transcription local (Whisper on RPi 5) or via API?
+Only `pages/social/<group>/` synchronizes to peers. `_sources/`, `inbox/`, and the
+private categories stay on the machine.
+
+This is a real boundary, not a convention: the sync node is scoped to `pages/social/`,
+each group is its own namespace with its own peer set, and a publish gate withholds any
+shared page that names a private one. See [sync-architecture.md](sync-architecture.md).
+
+---
+
+## Memory Outside the Wiki
+
+The agent also keeps `memory/` files in NanoClaw (daily logs, people, projects,
+learnings) and Claude Code keeps its own per-project memory. These are separate stores
+with different lifetimes, and they are **not** synchronized with the wiki.
+
+The rough division: `memory/` holds what the agent needs to be itself and to work with
+its user — preferences, relationships, ongoing context. The wiki holds knowledge that
+would still be worth having if written by someone else. Facts drift between the two,
+and a fact that has settled belongs in the wiki.
+
+---
+
+## Open Points
+
+- **The inbox has no expiry.** Either implement the declared TTL or drop the field.
+- **Promotion is unmeasured.** Nothing reports how many entries sit unpromoted or how
+  old they get; the lint could.
+- **No sync visibility.** After writing a shared page there is no answer to "did it
+  reach the other side" — see the open points in [konzept.md](konzept.md).
