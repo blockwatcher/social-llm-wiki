@@ -5,6 +5,6 @@
   "main": "src/index.js",
   "description": "LLM-Kuration nach Karpathy ingest/maintain pattern",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0"
+    "@anthropic-ai/sdk": "^0.91.1"
   }
 }

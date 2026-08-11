@@ -13,7 +13,7 @@
     "inspect": "npx @modelcontextprotocol/inspector node src/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@social-llm-wiki/graph": "*",
     "zod": "^4.3.6"
   }

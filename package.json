@@ -14,5 +14,12 @@
     "poc:sync": "node poc/yjs-libp2p/src/node-a.js",
     "watch": "node packages/channels/src/watch-cli.js",
     "review": "node packages/llm-layer/src/review-cli.js"
+  },
+  "overrides": {
+    "hono": "^4.13.1",
+    "ip-address": "^10.5.0",
+    "qs": "^6.15.3",
+    "body-parser": "^2.3.0",
+    "fast-uri": "^3.1.5"
   }
 }
