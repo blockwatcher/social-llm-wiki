@@ -154,8 +154,15 @@ wird er über Umgebungsvariablen — `WIKI_ROOT` (Pflicht in der Praxis),
 `WIKI_AUTHOR` (wer schreibt; sonst wird falsch signiert), `WIKI_SHARED_GROUPS`
 (welche geteilten Gruppen dieser Server bedienen darf).
 
-Die HTTP-Variante hört auf allen Interfaces und ist **ohne Token** — sie ist für
-das LAN gedacht. `WIKI_HTTP_TOKEN` schaltet Bearer-Auth ein.
+Die HTTP-Variante hört auf allen Interfaces und verlangt seit 2026-08-11 einen
+**Bearer-Token** (`WIKI_HTTP_TOKEN`, gesetzt in der systemd-Unit). Die Prüfung sitzt
+vor jeder Route, auch vor `/health` — das gab vorher unauthentifiziert den
+`wikiRoot`-Pfad preis. Ohne gesetzten Token bleibt der Server offen; das ist der
+Auslieferungszustand, aber nicht der hier gefahrene.
+
+Clients schicken `Authorization: Bearer <token>`. Betroffen sind nur HTTP-Clients —
+wer den Server per stdio startet (die lokale `.mcp.json`, Lukas' Setup), braucht
+keinen Token.
 
 ### Laufende Dienste
 
