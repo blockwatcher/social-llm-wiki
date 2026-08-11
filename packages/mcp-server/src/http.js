@@ -56,6 +56,19 @@ function sendJson(res, status, payload) {
 const httpServer = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`)
 
+  // Optional bearer-token auth, ahead of every route including /health.
+  //
+  // /health answered before this check and reported wikiRoot, so an
+  // unauthenticated caller on the LAN learned where the wiki lives. A health
+  // endpoint is not worth a disclosure: nothing here polls it automatically —
+  // the systemd unit has no health check — and an operator holds the token.
+  if (TOKEN) {
+    const auth = req.headers.authorization ?? ''
+    if (auth !== `Bearer ${TOKEN}`) {
+      return sendJson(res, 401, { error: 'unauthorized' })
+    }
+  }
+
   // Health check — handy for systemd / monitoring.
   if (req.method === 'GET' && url.pathname === '/health') {
     return sendJson(res, 200, { status: 'ok', wikiRoot: WIKI_ROOT })
@@ -63,14 +76,6 @@ const httpServer = createServer(async (req, res) => {
 
   if (url.pathname !== '/mcp') {
     return sendJson(res, 404, { error: 'not found' })
-  }
-
-  // Optional bearer-token auth.
-  if (TOKEN) {
-    const auth = req.headers.authorization ?? ''
-    if (auth !== `Bearer ${TOKEN}`) {
-      return sendJson(res, 401, { error: 'unauthorized' })
-    }
   }
 
   if (req.method !== 'POST') {
