@@ -24,8 +24,100 @@ async function loadOrCreateKey(keyFile) {
     return pk
   }
 }
+import { multiaddr } from '@multiformats/multiaddr'
 import { createFileBridge } from './file-bridge.js'
 import { createLinkPolicy } from './link-policy.js'
+
+/**
+ * Keep one dial target (the relay, or a peer) connected.
+ *
+ * Relay and peers used to be dialled exactly once at startup. When that connection
+ * later dropped — as the Pi's relay connection did — the process stayed up, published
+ * nothing, and logged nothing: a node that looks healthy in `systemctl status` while
+ * being completely isolated. Each target now gets a supervisor that re-dials with
+ * exponential backoff, and says so both when it loses and when it regains the link.
+ *
+ * A drop is noticed two ways: libp2p's peer:disconnect event triggers an immediate
+ * retry, and a periodic check catches drops that produced no event.
+ */
+function superviseConnection({ node, namespace, label, addr, minDelayMs, maxDelayMs, checkMs }) {
+  const target = multiaddr(addr)
+  // A circuit address carries two /p2p/ components — the relay's and the destination's.
+  // The last one is who we actually end up connected to.
+  const p2p = target.getComponents().filter((c) => c.name === 'p2p')
+  const peerId = p2p.at(-1)?.value ?? null
+  let delay = minDelayMs
+  let timer = null
+  let stopped = false
+  let connected = false
+
+  // Without a /p2p/ component we cannot tell whether the target is connected, so
+  // supervision would degrade into dialling on every tick. Dial once and stay quiet.
+  const supervisable = peerId !== null
+
+  const isConnected = () =>
+    node.getConnections().some((c) => c.remotePeer.toString() === peerId)
+
+  const arm = (ms) => {
+    if (stopped || !supervisable) return
+    clearTimeout(timer)
+    timer = setTimeout(tick, ms)
+    timer.unref?.()
+  }
+
+  async function tick() {
+    if (stopped) return
+    timer = null
+
+    if (supervisable && isConnected()) {
+      if (!connected) {
+        console.log(`[sync:${namespace}] ${label} connected: ${addr}`)
+        connected = true
+      }
+      delay = minDelayMs
+      arm(checkMs)
+      return
+    }
+
+    if (connected) {
+      console.warn(`[sync:${namespace}] ${label} connection lost, reconnecting: ${addr}`)
+      connected = false
+    }
+
+    try {
+      await node.dial(target)
+      console.log(`[sync:${namespace}] ${label} connected: ${addr}`)
+      connected = true
+      delay = minDelayMs
+      arm(checkMs)
+    } catch (err) {
+      if (supervisable) {
+        console.warn(
+          `[sync:${namespace}] ${label} dial failed, retry in ${Math.round(delay / 1000)}s: ${err.message}`,
+        )
+        arm(delay)
+        delay = Math.min(delay * 2, maxDelayMs)
+      } else {
+        console.warn(`[sync:${namespace}] could not connect to ${addr}: ${err.message}`)
+      }
+    }
+  }
+
+  return {
+    start: () => tick(),
+    // A disconnect is the strongest signal there is — retry now rather than at the
+    // next periodic check, and from the short end of the backoff.
+    onDisconnect(id) {
+      if (stopped || !supervisable || id !== peerId) return
+      delay = minDelayMs
+      arm(minDelayMs)
+    },
+    stop() {
+      stopped = true
+      clearTimeout(timer)
+    },
+  }
+}
 
 // GossipSub topic per namespace — isolates personal and shared namespaces
 function topicFor(namespace) {
@@ -83,6 +175,9 @@ export async function createWikiNode({
   stateDir = null, // override Yjs state dir; defaults to <wikiRoot>/.yjs
   keyFile = null,  // path to a persisted identity; null = ephemeral random PeerID
   pagesRoot = null, // enables the publish gate; see above
+  reconnectMinMs = 5_000,    // first retry delay after a lost connection
+  reconnectMaxMs = 300_000,  // backoff ceiling
+  reconnectCheckMs = 30_000, // liveness check for drops that fire no event
 } = {}) {
   const topic = topicFor(namespace)
   const wikiDir = join(wikiRoot, namespace)
@@ -213,36 +308,37 @@ export async function createWikiNode({
   const multiaddr = node.getMultiaddrs()[0]?.toString() ?? '(no address)'
   console.log(`[sync:${namespace}] started: ${multiaddr}`)
 
-  // --- Dial relay first (before initial peers) ---
-  // circuitRelayTransport() will make a v2 reservation and announce the
-  // circuit address once the relay connection is established.
-  if (relay) {
-    try {
-      const { multiaddr: ma } = (await import('@multiformats/multiaddr'))
-      await node.dial(ma(relay))
-      console.log(`[sync:${namespace}] connected to relay: ${relay}`)
-      // Give the relay a moment to complete the reservation
-      await new Promise(r => setTimeout(r, 1000))
-      const addrs = node.getMultiaddrs().map(a => a.toString())
-      console.log(`[sync:${namespace}] announced addresses:`, addrs)
-    } catch (err) {
-      console.warn(`[sync:${namespace}] could not connect to relay ${relay}: ${err.message}`)
-    }
+  // --- Keep relay and peers connected ---
+  // circuitRelayTransport() will make a v2 reservation and announce the circuit
+  // address once the relay connection is established, so the relay goes first.
+  const supervisors = []
+  const supervise = (label, addr) => {
+    const sup = superviseConnection({
+      node, namespace, label, addr,
+      minDelayMs: reconnectMinMs, maxDelayMs: reconnectMaxMs, checkMs: reconnectCheckMs,
+    })
+    supervisors.push(sup)
+    return sup.start()
   }
 
-  // --- Dial initial peers ---
-  for (const addr of peers) {
-    try {
-      const { multiaddr: ma } = (await import('@multiformats/multiaddr'))
-      await node.dial(ma(addr))
-      console.log(`[sync:${namespace}] connected to peer: ${addr}`)
-    } catch (err) {
-      console.warn(`[sync:${namespace}] could not connect to ${addr}: ${err.message}`)
-    }
+  node.addEventListener('peer:disconnect', (evt) => {
+    const id = evt.detail?.toString?.()
+    if (!id) return
+    for (const sup of supervisors) sup.onDisconnect(id)
+  })
+
+  if (relay) {
+    await supervise('relay', relay)
+    // Give the relay a moment to complete the reservation
+    await new Promise((r) => setTimeout(r, 1000))
+    console.log(`[sync:${namespace}] announced addresses:`, node.getMultiaddrs().map((a) => a.toString()))
   }
+
+  for (const addr of peers) await supervise('peer', addr)
 
   // --- Clean stop ---
   async function stop() {
+    for (const sup of supervisors) sup.stop()
     bridge.stop()
     await node.stop()
     console.log(`[sync:${namespace}] stopped`)
