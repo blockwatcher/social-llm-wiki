@@ -1,236 +1,200 @@
-# Social LLM Wiki — Konzept
+# Social LLM Wiki — Konzept und Stand
 
-Dezentrales, soziales Wiki für Menschen + LLM-Agenten.  
-Gemeinsam kuratiert, ohne zentralen Server.
+Persönliches Wiki, kuratiert von einem LLM-Agenten, mit geteilten Bereichen,
+die sich konfliktfrei per CRDT zwischen mehreren Rechnern abgleichen — ohne
+zentralen Server.
 
----
-
-## Vision
-
-Jeder Mensch hat einen persönlichen Wiki-Bereich, kuratiert durch seinen eigenen LLM-Agenten.
-Bots und Menschen können gemeinsame Bereiche kollaborativ bearbeiten — konfliktfrei via CRDTs,
-verteilt via libp2p. Neue Inhalte fließen über offene Channels rein: Textnachrichten, GPS-Tracks,
-Fotos, Kalendereinträge, beliebige strukturierte Daten.
+**Stand: 2026-08-11.** Dieses Dokument beschreibt, was *gebaut ist und läuft*.
+Was aus der ursprünglichen Vision nicht umgesetzt wurde, steht am Ende unter
+[Verworfen und offen](#verworfen-und-offen) — bewusst als solches markiert,
+statt als Plan getarnt.
 
 ---
 
-## Technologie-Stack
+## Das Wiki
 
-| Schicht          | Technologie                              |
-|------------------|------------------------------------------|
-| Identität        | DIDs (Decentralized Identifiers)         |
-| Auth             | UCAN (User Controlled Authorization)     |
-| Sync             | Yjs (CRDT) + libp2p GossipSub            |
-| LLM-Layer        | Karpathy ingest/maintain pattern         |
-| Bot-Koordination | A2A protocol                             |
-| Visualisierung   | Quartz (persönlich) + Outline (shared)   |
-| Suche            | Meilisearch                              |
-| Hardware         | Raspberry Pi 5, Mac Mini M5 (2026 H2)   |
-
----
-
-## Wiki-Namespaces
-
-Jeder Nutzer und jede Gruppe hat einen eigenen Namespace.
-Namespaces sind separate Yjs-Dokument-Scopes mit eigenen Berechtigungen.
+**Die maßgebliche Wiki liegt unter `nanoclaw/groups/main/memory/wiki/`** — nicht
+im `wiki/`-Verzeichnis dieses Repos. Das ist die häufigste Fehlerquelle: MCP-Server,
+Edit-Server und Quartz zeigen alle auf den nanoclaw-Baum. Wer `WIKI_ROOT` vergisst,
+schreibt in einen toten Baum, und die Notizen tauchen nie auf.
 
 ```
 wiki/
-  @darius/            ← Persönlicher Wiki (Agent1 ist LLM-Kurator)
-    reisen/
-    notizen/
-    projekte/
-  @soenke/            ← Persönlicher Wiki (Agent2 ist LLM-Kurator)
-    ...
-  groups/
-    hiking/           ← Geteilte Wandergruppe (beide schreibend)
-    projekte/         ← Gemeinsame Projekte
-    ...
+  SCHEMA.md            Regeln: Seitenformat, Ingest-Disziplin, Frontmatter
+  wiki-index.md        alle Seiten, je eine Zeile
+  log.md               Änderungsprotokoll, neueste zuerst
+  _sources/            Rohmaterial, nach Ingest unveränderlich
+  inbox/               Kurzzeitgedächtnis: lint, notes, projekte, sessions
+  pages/               kuratierte Seiten (derzeit 293)
+    bildung/ daten/ personen/ projekte/ reisen/ technik/ urlaub/ wissen/
+    social/            geteilte Bereiche → siehe unten
 ```
 
-Schreibrechte pro Namespace:
-- `@darius/` → nur Darius + Agent1
-- `@soenke/` → nur Sönke + Agent2
-- `groups/*` → alle Mitglieder der Gruppe (via UCAN-Delegation)
+Zwei Dinge, die man wissen muss, bevor man Seiten anlegt:
 
-**Phase 1** (vor UCAN): einfache Namespace-Strings + Yjs-Docs pro Namespace genügen.
-UCAN kommt rein, sobald das System wirklich verteilt mit mehreren Personen läuft.
+- **Dateinamen müssen wiki-weit eindeutig sein.** Index und Lint adressieren
+  Seiten über den Dateinamen-Stamm, nicht über den Pfad. Zwei `uebersicht.md` in
+  verschiedenen Ordnern kollidieren, und eine fällt still aus dem Index.
+- **YAML im Frontmatter quoten,** sobald Sonderzeichen vorkommen (`@`, `:`,
+  Gedankenstriche). Eine unquotierte Zeile kippt den Quartz-Build.
 
 ---
 
-## Channel-Architektur
+## Geteilte Bereiche
 
-Channels sind die Eingabe-Wege ins Wiki.
-Jeder Channel normalisiert seine Eingabe zu einem **ChannelEvent**,
-das der LLM-Layer in Wiki-Seiten überführt.
-
-```
-Quelle → Channel → ChannelEvent → LLM-Layer → Wiki-Seite(n)
-```
-
-### ChannelEvent — gemeinsames Format
-
-```js
-{
-  id:        'uuid',
-  channel:   'gpx-import',        // welcher Channel
-  schema:    'geo/track',          // Datentyp (hierarchisch)
-  author:    'did:key:z...',       // Urheber (DID)
-  namespace: '@darius/reisen',     // Ziel-Namespace im Wiki
-  timestamp: '2026-04-12T10:00Z',
-  tags:      ['wandern', 'zugspitze'],
-
-  payload: {
-    raw:  Buffer,                  // Rohdaten (GPX, Text, Foto, ...)
-    mime: 'application/gpx+xml',
-    meta: { ... }                  // schemaspezifische Metadaten
-  }
-}
-```
-
-### Channel-Typen
-
-**Push** — Daten kommen zum System:
-- Matrix-Nachrichten (Agent1/Agent2 als primäres Interface)
-- Watched Folder / Datei-Drop
-- Webhook (Shortcuts, n8n, IFTTT)
-- CLI (`wiki add "..."`)
-
-**Pull** — System holt Daten:
-- GPS-Tracks vom Gerät (Garmin, Telefon)
-- RSS/Atom Feeds
-- Kalender (iCal)
-- APIs (Wetter, Strava, OSM, ...)
-
-**Interaktiv** — Konversation als Channel:
-- Agent1-Bot (Darius)
-- Agent2 (Sönke)
-
-### Schema-Hierarchie
+Unter `pages/social/` liegen die gemeinsam bearbeiteten Bereiche. `social/` ist
+nur der Sammelordner — **jeder Bereich darunter ist eine eigene Gruppe und ein
+eigener Sync-Namespace** mit eigenem Yjs-Dokument, eigenem GossipSub-Topic und
+eigenem Peer-Kreis. Gruppen sind damit gegeneinander isoliert, und der private
+Teil des Wikis bleibt außen vor.
 
 ```
-channels/
-  text/
-    note          — Freie Notiz, Matrix-Nachricht
-    transcript    — Voice-Memo → Transkript
-    article       — Web-Clip, RSS-Artikel
-  geo/
-    track         — GPX/FIT Wanderroute, Reise
-    poi           — Ort, Restaurant, Hütte
-    photo         — Foto mit EXIF-Geodaten
-  media/
-    photo         — Foto ohne Geo
-    audio         — Voice-Memo (roh)
-  structured/
-    ical          — Kalender-Event
-    rss           — Feed-Artikel
-  raw/
-    url           — URL (Web-Clip)
-    file          — beliebige Datei
+pages/social/
+  darius-lukas/        erste Gruppe
+    go-rechenkern/
+    laermzentrale/
 ```
 
-Neuen Channel hinzufügen = neues Schema registrieren + LLM-Prompt für diesen Typ.
-Das System ist damit offen für beliebige zukünftige Datenquellen.
+Eine neue Gruppe = ein neuer Ordner + ein Sync-Node mit passendem
+`WIKI_NAMESPACE`. Keine Änderung am Code.
 
-### Beispiel: GPX-Track einer Wanderung
+### Verweise auf private Seiten
 
-Ein Channel nimmt eine GPX-Datei entgegen. Der LLM-Layer generiert daraus:
+Eine geteilte Seite erreicht jeden Peer der Gruppe. Ein `[[Wikilink]]` auf eine
+Seite außerhalb der Gruppe tut deshalb zwei unerwünschte Dinge: er zeigt beim
+Peer ins Leere, und er verrät den Namen der privaten Seite. **Solche Verweise
+gehören als Klartext in den Fließtext**, nicht in doppelte Klammern.
 
-```markdown
----
-title: Zugspitze via Höllental — 2026-04-10
-schema: geo/track
-tags: [wandern, zugspitze, alpen]
-geo:
-  start: [47.421, 10.985]
-  distance_km: 18.4
-  elevation_m: 2962
-  gpx: reisen/tracks/2026-zugspitze.gpx
----
+Die Regel wird an drei Stellen durchgesetzt, weil nicht alle Schreiber denselben
+Weg nehmen:
 
-# Zugspitze via Höllental
+| Stelle | Wann | Wen deckt sie ab |
+|---|---|---|
+| `wiki_write_page` (MCP) | beim Schreiben | MCP-Clients |
+| Publish-Gate im Sync-Node | beim Veröffentlichen | **alle** Schreiber |
+| `wiki-lint.py` | sonntags | alle, nachträglich |
 
-**18,4 km · 2962 Hm · 9h**
+Das Gate ist die eigentliche Garantie: eine Seite mit privatem Link wandert gar
+nicht erst ins Yjs-Dokument. Die lokale Datei bleibt unangetastet, und war die
+Seite vorher schon veröffentlicht, behalten die Peers die letzte saubere Fassung.
+Zurückgehaltene Seiten stehen in `<stateDir>/blocked-<namespace>.json`.
 
-KI-generierte Zusammenfassung: Wetter, Highlights, Schwierigkeitsgrad...
-
-## Wegpunkte
-...
-
-## Verlinkung
-- [[alpen-touren-übersicht]]
-- [[hütten/münchner-haus]]
-```
+Ein Link, der *nirgends* auflöst, geht durch — er nennt keine existierende Seite.
 
 ---
 
-## LLM-Layer: ingest / maintain
+## Sync
 
-Nach dem Karpathy-Muster gibt es zwei Operationen:
+Yjs als CRDT, libp2p 3.x als Transport, GossipSub zur Verteilung. Topic pro
+Namespace: `social-llm-wiki/v1/<namespace>`.
 
-- **ingest** — Rohmaterial → neue Wiki-Seite(n)
-  - LLM strukturiert, extrahiert, verlinkt
-  - Entscheidet: neue Seite oder bestehende ergänzen?
+Weil beide Seiten hinter NAT sitzen, läuft die Verbindung über einen
+**Circuit-Relay** (libp2p circuit-relay-v2) auf einem Hetzner-Server. Der Relay
+vermittelt nicht nur, er trägt auch den Datenverkehr — sein Default-Limit
+(~128 KB / 2 min) ist dafür abgeschaltet, was bei Wiki-Textmengen unkritisch ist.
 
-- **maintain** — Bestehende Seite aktualisieren
-  - Neue Infos einfügen, Konflikte auflösen
-  - Qualitätssicherung (Links prüfen, Dopplungen entfernen)
-  - Läuft periodisch oder getriggert
+Jeder Node hat eine **stabile Ed25519-Identität** aus einer Keyfile, seine PeerID
+bleibt also über Neustarts gleich. Peers verbinden sich, indem sie die
+Circuit-Adresse des anderen wählen — der Relay selbst gossippt nicht.
 
-Bots (Agent1, Agent2) führen beide Operationen aus und koordinieren sich via A2A-Protokoll
-wenn sie an gemeinsamen Namespaces arbeiten.
+Der Node bringt drei Eigenschaften mit, die im Betrieb wichtiger sind als der
+Sync selbst:
 
----
-
-## Bot-Koordination (A2A)
-
-```
-Agent1  ←──A2A──→  Agent2
- │                   │
- ▼                   ▼
-@darius/         @soenke/
-          ↘ ↙
-        groups/hiking/
-```
-
-Wenn beide Bots auf `groups/hiking/` schreiben:
-1. Jeder Bot sendet ein Yjs-Update via GossipSub
-2. CRDTs lösen Merge automatisch auf
-3. Bei semantischen Konflikten (gleiche Seite, widersprüchliche Aussagen):
-   → A2A-Nachricht an den anderen Bot → gemeinsame Auflösung
+- **Publish-Gate** — siehe oben.
+- **Löschweitergabe.** Eine gelöschte Datei verschwindet auch beim Peer.
+  Löschungen werden nach einer Karenzzeit bestätigt (ein Speichervorgang, der die
+  Datei kurz entfernt, gilt nicht als Löschung), und ein Löschen bei gestopptem
+  Dienst wird beim Start abgeglichen. Ausnahme: leeres Verzeichnis neben
+  nicht-leerem State ⇒ wiederherstellen, nicht bei allen Peers löschen.
+- **Reconnect mit Backoff.** Relay- und Peer-Verbindungen werden überwacht und
+  neu aufgebaut (5s, verdoppelnd bis 5min). Ohne das lief der Node nach einem
+  Verbindungsabbruch weiter, ohne zu senden und ohne etwas zu melden.
 
 ---
 
-## Offene Fragen (für Diskussion mit Sönke)
+## Die LLM-Schicht
 
-- **A2A + libp2p**: Läuft A2A direkt über libp2p-Streams oder als eigene Schicht drüber?
-- **UCAN Scope**: Für Phase 1 UCAN weglassen und einfaches Keypair-basiertes Auth nutzen?
-- **GossipSub Topics**: Ein Topic pro Namespace oder ein globales Topic mit Namespace-Filter?
-- **Bot-Identität**: Ein DID pro Bot oder ein DID pro (Bot × Namespace)?
-- **Maintain-Trigger**: Periodisch (Cron), event-getriggert oder beides?
-- **Visualisierung**: Quartz für persönlich OK — was für den shared-Layer? Outline oder etwas anderes?
+Kuratiert wird nach dem Karpathy-Muster, ausgeführt vom Agenten (Kai, läuft in
+NanoClaw):
+
+- **`wiki ingest <slug> "<titel>"`** — Rohmaterial nach `_sources/`, daraus eine
+  neue Seite oder eine datierte Ergänzung an einer bestehenden; Index und Log
+  werden mitgezogen. Schreibt in die **privaten** `pages/<kategorie>/`.
+- **`wiki query "<thema>"`** — findet vorhandenes Wissen, über Index und grep.
+- **`wiki lint`** — Konsistenzprüfung.
+
+Der Agent hat **keinen MCP-Zugriff** — er arbeitet direkt auf den Dateien, da
+ihm der Wiki-Baum ohnehin gemountet ist. Für den geteilten Bereich legt er
+Seiten deshalb als Datei an, nicht über `wiki ingest`.
+
+Sonntags 09:00 läuft `wiki-lint.py` als systemd-Timer und legt einen Report in
+`memory/drop/`, den der Agent liest und in konkrete Vorschläge übersetzt. Der
+Lint prüft unter anderem gebrochene Wikilinks, Namens-Kollisionen, Privatlinks im
+geteilten Bereich, Index-Drift und Konsolidierungs-Kandidaten (welche Seiten
+thematisch zusammengehören, aber nicht verlinkt sind).
+
+Die Inbox (`inbox/`) ist Kurzzeitgedächtnis: Notizen aus externen Sessions landen
+dort mit `promoted: false` und werden bei Gelegenheit in kuratierte Seiten
+gefaltet.
 
 ---
 
-## Memory-Architektur
+## Zugänge
 
-Das Wiki unterscheidet zwischen Kurzzeitgedächtnis (`inbox/`), Staging (`review/`) und
-Langzeitgedächtnis (`wiki/`). Auto-Ingest-Channels füllen die Inbox automatisch;
-ein LLM-Review-Schritt schlägt Promotionen vor; der Nutzer entscheidet, was dauerhaft ins Wiki kommt.
+| Dienst | Adresse | Was |
+|---|---|---|
+| MCP (stdio) | pro Session gestartet | Wiki als Werkzeug in Claude Code |
+| MCP (HTTP) | `:8787/mcp` | dasselbe über LAN, `wiki-mcp.service` |
+| Edit-Server | `:7800` | Seiten im Browser bearbeiten |
+| Quartz | `:8080` | gerenderte Wiki, read-only |
 
-→ Details: [memory-architecture.md](memory-architecture.md)
+Der MCP-Server bietet sieben Werkzeuge: `wiki_list`, `wiki_read`, `wiki_search`,
+`wiki_write_inbox`, `wiki_write_page`, `wiki_graph`, `wiki_gaps`. Konfiguriert
+wird er über Umgebungsvariablen — `WIKI_ROOT` (Pflicht in der Praxis),
+`WIKI_AUTHOR` (wer schreibt; sonst wird falsch signiert), `WIKI_SHARED_GROUPS`
+(welche geteilten Gruppen dieser Server bedienen darf).
+
+Die HTTP-Variante hört auf allen Interfaces und ist **ohne Token** — sie ist für
+das LAN gedacht. `WIKI_HTTP_TOKEN` schaltet Bearer-Auth ein.
+
+### Laufende Dienste
+
+| Unit | Zustand |
+|---|---|
+| `wiki-mcp.service` (user) | läuft |
+| `wiki-social-sync.service` (user) | läuft |
+| `wiki-edit-server.service` | läuft |
+| `quartz-watcher.service` | läuft, triggert `quartz-rebuild.service` |
+| `wiki-lint.timer` | wöchentlich |
+
+Die Unit-Dateien `wiki-review.service` und `wiki-file-watch.service` liegen im
+Repo, sind aber **nicht installiert** — der automatische Review-Schritt und der
+Drop-Ordner-Channel laufen nicht.
 
 ---
 
-## Implementierungs-Reihenfolge (Vorschlag)
+## Verworfen und offen
 
-1. ✅ PoC: Yjs + libp2p GossipSub Sync (fertig)
-2. DID-Schema für Agent1 + Agent2
-3. Namespace-Model + Yjs-Docs pro Namespace
-4. Inbox-Struktur + TTL-Mechanismus
-5. Erster Auto-Ingest-Channel: `email-imap`
-6. LLM-Review-Schritt: Agent1 analysiert Inbox, schreibt Kandidaten nach `review/`
-7. User-Supervision: Matrix-Notification + Approve/Reject
-8. Erster Geo-Channel: `geo/track` (GPX)
-9. A2A-Protokoll zwischen Agent1 und Agent2
-10. UCAN-Berechtigungen (wenn Multi-User live geht)
+Die ursprüngliche Fassung dieses Dokuments (Mai 2026) beschrieb einen deutlich
+größeren Entwurf. Was davon nicht gebaut wurde und warum:
+
+| Geplant | Stand |
+|---|---|
+| **DIDs** für Identität | Ersetzt durch libp2p-PeerIDs aus persistenten Keyfiles. Genügt für einen kleinen, bekannten Peer-Kreis. |
+| **UCAN** für Berechtigungen | Nicht gebaut. Zugriff regeln stattdessen: Pfad-Scope beim Schreiben, ein Sync-Namespace je Gruppe, das Publish-Gate. |
+| **Meilisearch** | Nicht gebaut. `wiki_search` scannt Volltext direkt — bei 293 Seiten ausreichend. |
+| **Outline** für den geteilten Layer | Nicht gebaut. Quartz rendert den geteilten Bereich mit. |
+| **A2A-Bot-Koordination** | Entfallen — es gibt nur einen Agenten. Der zweite Bot der Vision existiert nicht. |
+| **Matrix** als Interface | Es ist WhatsApp (über NanoClaw). |
+| **`review/`-Staging-Schicht** | Nicht gebaut. Promotion läuft über `promoted: false` im Frontmatter plus Kuration. |
+| **Schema-Hierarchie** (`geo/track`, `media/photo`, …) und Geo-Channels | Nicht gebaut. Die Inbox hat vier Channels: `lint`, `notes`, `projekte`, `sessions`. |
+| **Namespaces `@person/` und `groups/`** | Anders gelöst: Kategorien unter `pages/`, geteilte Bereiche unter `pages/social/<gruppe>/`. |
+
+Offene Punkte, die tatsächlich anstehen:
+
+- **Sichtbarkeit des Syncs.** Nach einem Schreibvorgang gibt es keine Antwort auf
+  „ist das beim anderen angekommen, ist er überhaupt online". Ein
+  `wiki_sync_status` bräuchte einen Status-Endpoint am Sync-Node.
+- **Umbenennen und Löschen über den MCP.** Beides geht nur über das Dateisystem;
+  für einen entfernten Peer also gar nicht.
+- **Mehr als eine geteilte Gruppe.** Das Modell trägt es, ausprobiert ist es nicht.
