@@ -1,6 +1,18 @@
 # Migrationsplan: libp2p 2.x → 3.x + `@libp2p/gossipsub` 16
 
-**Status:** geplant · **Erstellt:** 2026-06-19 · **Treiber:** CVE-2026-46679
+**Status:** ✅ **durchgeführt** · **Erstellt:** 2026-06-19 · **Treiber:** CVE-2026-46679
+
+> **Abgeschlossen.** `packages/sync` migriert am 2026-08-10 (`6a3062a`), der PoC am
+> 2026-08-11. Der Baum enthält kein `@chainsafe/libp2p-gossipsub` mehr, `libp2p` löst
+> überall auf 3.3.8 auf, und die von Hand gespiegelten `decodeRpcLimits` sind an beiden
+> Stellen entfallen — die Limits sind seit `@libp2p/gossipsub@16.x` upstream vorbelegt,
+> samt der zwei Härtungen, die sich nur im Code beheben ließen. Das Dokument bleibt als
+> Beleg stehen: was geändert wurde und warum.
+>
+> Der Deployment-Hinweis unten ist überholt — der Sync-Layer läuft seit dem 2026-08-10
+> produktiv als `wiki-social-sync.service`. Die DoS-Fläche war zum Migrationszeitpunkt
+> latent, ist es jetzt aber nicht mehr; deshalb war die Reihenfolge (erst migrieren,
+> dann in Betrieb nehmen) die richtige.
 
 ## 1. Ziel & Begründung
 
@@ -27,9 +39,15 @@ Der offizielle Fix lebt im umbenannten Paket **`@libp2p/gossipsub@≥15.0.23`**
 
 | Betroffen | Dateien | Priorität |
 |---|---|---|
-| Produktions-Sync-Layer | `packages/sync/package.json`, `packages/sync/src/wiki-node.js` | **Muss** |
-| PoC | `poc/yjs-libp2p/package.json`, `poc/yjs-libp2p/src/create-node.js` | Optional (dev-only) |
-| Lockfile | `package-lock.json` (npm workspaces) | Muss |
+| Produktions-Sync-Layer | `packages/sync/package.json`, `packages/sync/src/wiki-node.js` | **Muss** — ✅ 2026-08-10 |
+| PoC | `poc/yjs-libp2p/package.json`, `poc/yjs-libp2p/src/create-node.js` | Optional (dev-only) — ✅ 2026-08-11 |
+| Lockfile | `package-lock.json` (npm workspaces) | Muss — ✅ |
+
+Vom PoC waren nur zwei der fünf Code-Schritte aus §4 betroffen (gossipsub-Import,
+`decodeRpcLimits` entfernen): er nutzt ausschließlich GossipSub, keine eigenen
+Protokolle und keine Streams, also entfielen Handler-Signatur, `stream.source` und
+`sink()`. Verifiziert mit `demo.js` (zwei In-Process-Nodes, Konvergenz bestätigt) und
+mit `node-a.js`/`node-b.js` über einen echten TCP-Dial zwischen zwei Prozessen.
 
 Nicht betroffen: `mcp-server`, `edit-server`, `graph`, `bot` (kein direkter
 gossipsub-/Stream-Code). `bot` referenziert libp2p nur konzeptionell.

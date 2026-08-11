@@ -8,14 +8,14 @@
     "node-b": "node src/node-b.js"
   },
   "dependencies": {
-    "@chainsafe/libp2p-gossipsub": "^14.1.1",
-    "@multiformats/multiaddr": "^12.3.3",
-    "@chainsafe/libp2p-noise": "^16.0.0",
-    "@libp2p/identify": "^3.0.0",
-    "@libp2p/tcp": "^10.0.0",
-    "@chainsafe/libp2p-yamux": "^7.0.0",
-    "libp2p": "^2.8.0",
-    "uint8arrays": "^5.1.0",
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.1",
+    "@libp2p/gossipsub": "^16.0.3",
+    "@libp2p/identify": "^4.1.8",
+    "@libp2p/tcp": "^11.0.22",
+    "@multiformats/multiaddr": "^13.0.3",
+    "libp2p": "^3.3.4",
+    "uint8arrays": "^6.1.1",
     "yjs": "^13.6.27"
   }
 }

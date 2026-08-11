@@ -2,27 +2,19 @@ import { createLibp2p } from 'libp2p'
 import { tcp } from '@libp2p/tcp'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { noise } from '@chainsafe/libp2p-noise'
-import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { gossipsub } from '@libp2p/gossipsub'
 import { identify } from '@libp2p/identify'
 import * as Y from 'yjs'
 import { fromString, toString } from 'uint8arrays'
 
 export const WIKI_TOPIC = 'social-llm-wiki/sync/v1'
 
-// Decode-level caps on a single incoming GossipSub RPC frame.
-// SECURITY (CVE-2026-46679): @chainsafe/libp2p-gossipsub@14.x defaults every
-// decode limit to Infinity, letting an unauthenticated peer crash the node's heap
-// with a subscription-flood frame. Mirror the finite caps from the patched
-// @libp2p/gossipsub@16.0.3. See packages/sync/src/wiki-node.js for the full note.
-const GOSSIPSUB_DECODE_LIMITS = {
-  maxSubscriptions: 5000,
-  maxMessages: 5000,
-  maxIhaveMessageIDs: 5000,
-  maxIwantMessageIDs: 5000,
-  maxControlMessages: 5000,
-  maxIdontwantMessageIDs: 512,
-  maxPeerInfos: 16,
-}
+// Kein decodeRpcLimits mehr: CVE-2026-46679 (GossipSub-Subscription-Flood-DoS) ist
+// seit @libp2p/gossipsub@16.x upstream behoben — die RPC-Decode-Limits sind dort
+// endlich vorbelegt, und die zwei Härtungen, die sich nur im Code beheben lassen
+// (Per-Peer-Subscription-Zähler, Aufräumen leerer Sets), sind mit drin. Die früher
+// hier von Hand gespiegelten Limits sind damit überflüssig.
+// Siehe docs/libp2p-v3-migration.md.
 
 /**
  * Erstellt einen libp2p-Node mit GossipSub und einem Yjs-Dokument.
@@ -43,7 +35,6 @@ export async function createWikiNode({ port = 0, name = 'node' } = {}) {
       pubsub: gossipsub({
         emitSelf: false,
         allowPublishToZeroTopicPeers: true,
-        decodeRpcLimits: GOSSIPSUB_DECODE_LIMITS, // CVE-2026-46679 mitigation
       }),
     },
   })
