@@ -8,10 +8,16 @@ const EXCERPT_RADIUS = 120  // Zeichen vor/nach dem Treffer
 const MAX_RESULTS = 10
 
 // BM25-Parameter. k1 steuert, wie schnell der Nutzen weiterer Vorkommen
-// abflacht; b, wie stark lange Dokumente heruntergewichtet werden. 1.5/0.75
-// sind die üblichen Werte und für einen Korpus dieser Größe unkritisch.
+// abflacht; b, wie stark lange Dokumente heruntergewichtet werden.
+//
+// b liegt bewusst unter dem üblichen 0.75. Der Standardwert unterstellt, dass
+// Länge vor allem Füllstoff bedeutet — in einer Wiki ist das umgekehrt: die
+// langen Seiten sind die gründlich recherchierten. Gemessen an diesem Korpus
+// (935 bis 16.046 Token) gewann bei 0.75 für „Wärmepumpe" eine Seite mit einem
+// einzigen beiläufigen Treffer („kein Wärmepumpe") gegen die Fachseite mit
+// neun. Ab 0.5 kippt es richtig herum; darunter ändert sich nichts mehr.
 const K1 = 1.5
-const B = 0.75
+const B = 0.5
 
 // Kleiner Zuschlag, wenn die Anfrage zusätzlich als zusammenhängende
 // Zeichenfolge vorkommt. Hilft bei Bezeichnern wie `min_soc_percentage` oder
@@ -39,6 +45,14 @@ function tierWeight(relPath) {
   return TIER_WEIGHT.root   // log.md, wiki-index.md, SCHEMA.md
 }
 
+// Ein Treffer im Titel wiegt schwerer als einer im Fließtext, einer in den
+// Aliasen fast ebenso. Beide stehen genau einmal in der Datei; ohne Zuschlag
+// gingen sie in einer Seite unter, die den Begriff beiläufig zwanzigmal
+// erwähnt. Mit k1 = 1.5 verdoppelt ein Faktor von 8 den Beitrag des Begriffs
+// ungefähr — deutlich, aber nicht erdrückend.
+const TITLE_BOOST = 8
+const ALIAS_BOOST = 6
+
 /**
  * Zerlegung in Wörter. Bindestrich und Unterstrich bleiben **im** Token, damit
  * `go-e` und `min_soc` nicht auseinanderfallen — das sind hier die typischen
@@ -46,6 +60,61 @@ function tierWeight(relPath) {
  */
 function tokenize(text) {
   return text.toLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? []
+}
+
+/**
+ * `title` und `aliases` aus dem YAML-Frontmatter ziehen.
+ *
+ * Bewusst per Regex statt mit einem YAML-Parser: das wären eine Abhängigkeit
+ * und ein Fehlerpfad für eine Suche, die auch bei kaputtem Frontmatter noch
+ * etwas liefern soll. Wird nichts erkannt, gibt es eben keinen Zuschlag.
+ */
+// Beugungsformen zählen mit, aber schwächer. Deutsch hängt an: aus
+// `Wärmepumpe` wird `Wärmepumpen`, `Wärmepumpen-Verbrauch`,
+// `Wärmepumpenkomponenten`. Reine Wortgleichheit übersieht das — auf einer
+// Fachseite standen 6 exakte Treffer neben 14 Formen, die durchfielen.
+//
+// Deshalb gilt ein Dokument-Token auch dann als Treffer, wenn es mit dem
+// Suchbegriff beginnt und
+//   * höchstens INFLECTION_MAX_SUFFIX Zeichen anhängt (Plural, Kasus), oder
+//   * direkt danach einen Bindestrich setzt (Kompositum).
+// Beides nur ab MIN_STEM_LEN Zeichen, sonst würde `auto` auf `automatisch`
+// und `Autor` greifen — genau die Unschärfe, die die Wortgrenzen beseitigt
+// haben.
+const INFLECTION_WEIGHT = 0.5
+const INFLECTION_MAX_SUFFIX = 3
+const MIN_STEM_LEN = 5
+
+function matchWeight(token, term) {
+  if (token === term) return 1
+  if (term.length < MIN_STEM_LEN || !token.startsWith(term)) return 0
+  const rest = token.slice(term.length)
+
+  // Beugung: `Wärmepumpe` → `Wärmepumpen`, `Akku` → `Akkus`.
+  if (rest.length <= INFLECTION_MAX_SUFFIX) return INFLECTION_WEIGHT
+
+  // Kompositum mit Bindestrich. Der Strich steht selten direkt hinter dem
+  // Wort — Deutsch schiebt ein Fugenelement ein: `Wärmepumpe` + `n` +
+  // `-Lärm`. Ein erstes Muster verlangte den Strich unmittelbar danach und
+  // erwischte deshalb kein einziges Kompositum.
+  if (new RegExp(`^.{0,${INFLECTION_MAX_SUFFIX}}-`).test(rest)) return INFLECTION_WEIGHT
+
+  // Zusammengeschriebene Komposita (`Wärmepumpenkomponenten`) bleiben
+  // unerkannt. Sie zu erfassen hieße, beliebig lange Endungen zuzulassen —
+  // und damit `auto` wieder auf `automatisch` greifen zu lassen. Ohne
+  // Wörterbuch ist das die richtige Seite, auf der man irrt.
+  return 0
+}
+
+function frontmatterFields(content) {
+  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+  if (!m) return { title: '', aliases: '' }
+  const block = m[1]
+  const title = (block.match(/^title:\s*(.+)$/m)?.[1] ?? '').replace(/^["']|["']$/g, '')
+  // `aliases: [a, b]` und die Listenform mit `- a` je Zeile abdecken.
+  const inline = block.match(/^aliases:\s*\[(.*?)\]/m)?.[1] ?? ''
+  const listed = (block.match(/^aliases:\s*\n((?:\s*-\s*.+\n?)+)/m)?.[1] ?? '')
+  return { title, aliases: `${inline} ${listed}` }
 }
 
 /**
@@ -84,6 +153,18 @@ export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
     const tokens = tokenize(content)
     const tf = new Map()
     for (const t of tokens) tf.set(t, (tf.get(t) ?? 0) + 1)
+
+    // Feld-Zuschlag. Titel und Aliase stecken bereits im Text und sind oben
+    // einmal gezählt; hier kommt die Differenz zum Zielgewicht dazu. Die
+    // Dokumentlänge bleibt die des tatsächlichen Textes — sonst würde die
+    // Längennormierung den Zuschlag gleich wieder auffressen.
+    const { title, aliases } = frontmatterFields(content)
+    for (const [text, boost] of [[title, TITLE_BOOST], [aliases, ALIAS_BOOST]]) {
+      for (const t of tokenize(text)) {
+        tf.set(t, (tf.get(t) ?? 0) + (boost - 1))
+      }
+    }
+
     return { relPath, content, lower: content.toLowerCase(), tf, len: tokens.length }
   })
 
@@ -96,15 +177,29 @@ export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
   // zurückgefallen. Das ist für Deutsch nötig — `Strommessung` steckt in
   // `Wärmepumpen-Strommessung`, das als ein Token gilt. Der Rückfall greift nur
   // bei sonst null Treffern, deshalb findet `soc` weiterhin nicht `social`.
+  // Einmal das Vokabular, dann je Begriff die passenden Token samt Gewicht.
+  // Ohne diesen Zwischenschritt müsste je Begriff und Dokument die ganze
+  // Token-Tabelle durchlaufen werden.
+  const vocab = new Set()
+  for (const d of docs) for (const t of d.tf.keys()) vocab.add(t)
+
   const scored = terms.map((term) => {
-    let df = docs.reduce((n, d) => n + (d.tf.has(term) ? 1 : 0), 0)
+    const matches = []
+    for (const token of vocab) {
+      const w = matchWeight(token, term)
+      if (w > 0) matches.push([token, w])
+    }
+
+    let df = docs.reduce((n, d) => n + (matches.some(([tok]) => d.tf.has(tok)) ? 1 : 0), 0)
     let substring = false
     if (df === 0) {
+      // Letzter Ausweg: Teilstring irgendwo im Text. Greift nur, wenn der
+      // Begriff als Wort und als Beugungsform nirgends vorkommt.
       df = docs.reduce((n, d) => n + (d.lower.includes(term) ? 1 : 0), 0)
       substring = df > 0
     }
     const idf = Math.log(1 + (N - df + 0.5) / (df + 0.5))
-    return { term, df, idf, substring }
+    return { term, df, idf, substring, matches }
   }).filter((t) => t.df > 0)
 
   // Allgegenwärtige Wörter verwerfen, solange etwas übrig bleibt. IDF gewichtet
@@ -125,8 +220,10 @@ export async function wikiSearch({ wikiRoot, query, namespace = '' }) {
     let score = 0
     let hits = 0
     let matched = 0
-    for (const { term, idf, substring } of termStats) {
-      const f = substring ? countSubstring(doc.lower, term) : (doc.tf.get(term) ?? 0)
+    for (const { term, idf, substring, matches } of termStats) {
+      const f = substring
+        ? countSubstring(doc.lower, term)
+        : (matches ?? []).reduce((s, [tok, w]) => s + (doc.tf.get(tok) ?? 0) * w, 0)
       if (f === 0) continue
       matched++
       hits += f

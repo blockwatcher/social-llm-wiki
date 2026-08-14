@@ -146,3 +146,62 @@ test('Fuellwoerter fliegen raus, solange etwas uebrig bleibt', async (t) => {
     '"das" steht in allen Seiten und darf die Trefferliste nicht fuellen')
   assert.ok(!out.includes('pages/b.md'))
 })
+
+// ── Feld-Gewichtung und Morphologie ─────────────────────────────────────────
+
+test('Titel wiegt schwerer als Fliesstext', async (t) => {
+  const root = await wikiWith({
+    'pages/thema.md': '---\ntitle: Wallbox\ncategory: technik\n---\n\nAnschluss und Montage.\n',
+    'pages/nebenbei.md': '---\ntitle: Hausanschluss\n---\n\n' + 'Die wallbox wird erwaehnt. '.repeat(12),
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'wallbox' })).content[0].text
+  const erste = out.split('\n').filter((l) => l.startsWith('### '))[0]
+  assert.ok(erste.includes('pages/thema.md'),
+    `die Seite, die das Thema IST, steht nicht oben: ${erste}`)
+})
+
+test('aliases machen eine Seite unter ihrem Alltagsnamen auffindbar', async (t) => {
+  const root = await wikiWith({
+    'pages/id3.md': '---\ntitle: VW ID.3\naliases: [Auto, Stromer]\n---\n\nReichweite und Laden.\n',
+    'pages/sonst.md': '---\ntitle: Sonstiges\n---\n\nHier steht nichts dazu.\n',
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'Stromer' })).content[0].text
+  assert.ok(out.includes('pages/id3.md'),
+    'ein Alias im Frontmatter muss die Seite auffindbar machen')
+})
+
+test('Beugung und Komposita zaehlen mit, schwaecher', async (t) => {
+  // Nachgebaut nach dem realen Fall: die Fachseite nennt fast nur gebeugte
+  // Formen, die beilaeufige Seite genau einmal die Grundform.
+  const root = await wikiWith({
+    'pages/fach.md': '---\ntitle: Schall\n---\n\n'
+      + 'Waermepumpen sind laut. Waermepumpen-Laerm, Waermepumpen-Studien, '
+      + 'Waermepumpen im Betrieb, Waermepumpen-Genehmigung.\n',
+    'pages/beilaeufig.md': '---\ntitle: Kaufberatung\n---\n\nKeine Waermepumpe verbaut.\n',
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'Waermepumpe' })).content[0].text
+  assert.ok(out.includes('pages/fach.md'),
+    'Plural und Kompositum duerfen nicht durchfallen — genau das war der Fehler')
+  const erste = out.split('\n').filter((l) => l.startsWith('### '))[0]
+  assert.ok(erste.includes('pages/fach.md'),
+    `die Fachseite steht nicht oben: ${erste}`)
+})
+
+test('kurze Begriffe greifen NICHT auf laengere Woerter', async (t) => {
+  const root = await wikiWith({
+    'pages/a.md': '---\ntitle: Fahrzeug\n---\n\nDas auto steht draussen.\n',
+    'pages/b.md': '---\ntitle: Ablauf\n---\n\n' + 'automatisch '.repeat(30),
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'auto' })).content[0].text
+  assert.ok(out.includes('pages/a.md'))
+  assert.ok(!out.includes('pages/b.md'),
+    '"auto" darf nicht auf "automatisch" greifen — MIN_STEM_LEN schuetzt davor')
+})
