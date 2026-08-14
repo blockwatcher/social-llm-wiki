@@ -72,3 +72,77 @@ test('namespace grenzt auf kuratierte Seiten ein', async (t) => {
   assert.ok(out.includes('pages/projekte/wallbox.md'))
   assert.ok(!out.includes('inbox/'), 'namespace-Filter hat Rohdaten durchgelassen')
 })
+
+// ── BM25-Eigenschaften ──────────────────────────────────────────────────────
+
+async function wikiWith(files) {
+  const root = await mkdtemp(join(tmpdir(), 'wiki-bm25-'))
+  for (const [rel, body] of Object.entries(files)) {
+    const full = join(root, rel)
+    await mkdir(join(full, '..'), { recursive: true })
+    await writeFile(full, body)
+  }
+  return root
+}
+
+test('Wortgrenzen: "soc" trifft nicht "social"', async (t) => {
+  const root = await wikiWith({
+    'pages/a.md': 'Der SoC des Akkus liegt bei 80 Prozent.\n',
+    'pages/b.md': 'social social social social social\n',
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'soc' })).content[0].text
+  assert.ok(out.includes('pages/a.md'))
+  assert.ok(!out.includes('pages/b.md'),
+    '"soc" darf nicht innerhalb von "social" treffen — Teilstring statt Wortgrenze')
+})
+
+test('Saettigung: langes Wiederholen schlaegt die kuratierte Seite nicht mehr', async (t) => {
+  // Der Fall aus der Praxis: ein Sitzungsmitschnitt nennt den Begriff 80-mal,
+  // die zustaendige Seite dreimal. Nach roher Trefferzahl gewann der Mitschnitt.
+  //
+  // BM25 allein dreht das NICHT um — 80 Vorkommen bleiben mehr als 3, die
+  // Saettigung daempft nur das Verhaeltnis (aus 80:1 wird rechnerisch etwa
+  // 1,3:1). Erst zusammen mit dem Fundort-Gewicht kippt es. Beides gehoert
+  // deshalb zusammen; wer eines davon entfernt, faellt in das alte Verhalten
+  // zurueck.
+  const root = await wikiWith({
+    'pages/wallbox.md': 'Die Wallbox laedt den Wagen. Die Wallbox haengt am Netz. Wallbox: 11 kW.\n',
+    'inbox/sessions/dump.md': 'wallbox '.repeat(80) + 'fuellwort '.repeat(4000) + '\n',
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'wallbox' })).content[0].text
+  const erste = out.split('\n').filter((l) => l.startsWith('### '))[0]
+  assert.ok(erste.includes('pages/wallbox.md'),
+    `der Mitschnitt gewinnt noch immer: ${erste}`)
+})
+
+test('Wortmengen-Anfrage: Frage findet Seiten mit einem Teil der Begriffe', async (t) => {
+  const root = await wikiWith({
+    'pages/laden.md': 'Nachts laedt der Wagen guenstig.\n',
+    'pages/anderes.md': 'Ein Text ueber Pilze.\n',
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'Warum laedt der Wagen nachts' })).content[0].text
+  assert.ok(!out.startsWith('No results'),
+    'eine Frage darf nicht als Phrase gesucht werden — sonst null Treffer')
+  assert.ok(out.includes('pages/laden.md'))
+  assert.ok(!out.includes('pages/anderes.md'))
+})
+
+test('Fuellwoerter fliegen raus, solange etwas uebrig bleibt', async (t) => {
+  const root = await wikiWith({
+    'pages/a.md': 'das Thema ist Photovoltaik\n',
+    'pages/b.md': 'das ist etwas ganz anderes\n',
+    'pages/c.md': 'das kommt ueberall vor\n',
+  })
+  t.after(() => rm(root, { recursive: true, force: true }))
+
+  const out = (await wikiSearch({ wikiRoot: root, query: 'das Photovoltaik' })).content[0].text
+  assert.match(out, /Terms: photovoltaik/,
+    '"das" steht in allen Seiten und darf die Trefferliste nicht fuellen')
+  assert.ok(!out.includes('pages/b.md'))
+})
